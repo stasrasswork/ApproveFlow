@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Environment (keep .env.example in git)
+.env
+.env.*
+!.env.example
+
+# Prisma generated client (regenerate with npm run db:generate)
+apps/api/generated/
+
+# Build output (Nest / TypeScript)
+dist/
+build/
+*.tsbuildinfo
+
+# Logs & debug
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+*.swp
+*.swo
+*~
+
+# Optional: local editor settings (uncomment if you don't want to share)
+# .vscode/
+
+# Cursor (local agent/terminals cache)
+.cursor/
+
+# Docker (local overrides only; compose file stays in repo)
+docker-compose.override.yml
