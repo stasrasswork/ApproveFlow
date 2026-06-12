@@ -7,10 +7,11 @@ node_modules/
 !.env.example
 
 # Prisma generated client (regenerate with npm run db:generate)
-apps/api/generated/
+apps/api/src/generated/
 
 # Build output (Nest / TypeScript)
 dist/
+apps/api/dist/
 build/
 *.tsbuildinfo
 
