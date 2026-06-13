@@ -22,13 +22,18 @@ import {
   type UserBrief,
 } from '../common/index.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { CreateTaskDto, TransitionTaskDto, UpdateTaskDueDto } from './dto/index.js';
+import {
+  CreateTaskDto,
+  TransitionTaskDto,
+  UpdateTaskDto,
+  UpdateTaskDueDto,
+} from './dto/index.js';
 import {
   assertTransitionWithPayload,
   getAllowedTargetStatuses,
   TransitionNotAllowedError,
   TransitionValidationError,
-} from './task-transition.js';
+} from './domain/task-transition.js';
 
 type TaskWithProject = Task & {
   project: { id: string; workspaceId: string };
@@ -208,6 +213,47 @@ export class TasksService {
     return {
       targets: getAllowedTargetStatuses(role, task.status),
     };
+  }
+
+  async update(
+    taskId: string,
+    userId: string,
+    dto: UpdateTaskDto,
+  ): Promise<Task> {
+    const task = await this.loadTask(taskId);
+    const role = await this.getWorkspaceRoleForTask(task, userId);
+
+    if (!isAgencyRole(role)) {
+      throw new ForbiddenException('Only admin or manager can update tasks');
+    }
+
+    if (
+      dto.title === undefined &&
+      dto.description === undefined &&
+      dto.assigneeId === undefined &&
+      dto.sprintLabel === undefined
+    ) {
+      throw new BadRequestException('Provide at least one field to update');
+    }
+
+    if (dto.assigneeId) {
+      await assertAssigneeInProject(
+        this.prisma,
+        dto.assigneeId,
+        task.project.id,
+        task.project.workspaceId,
+      );
+    }
+
+    return this.prisma.task.update({
+      where: { id: taskId },
+      data: {
+        ...(dto.title !== undefined && { title: dto.title }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.assigneeId !== undefined && { assigneeId: dto.assigneeId }),
+        ...(dto.sprintLabel !== undefined && { sprintLabel: dto.sprintLabel }),
+      },
+    });
   }
 
   async updateDue(

@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import {
   CreateTaskDto,
   TransitionTaskDto,
+  UpdateTaskDto,
   UpdateTaskDueDto,
 } from './dto/index.js';
 import {
@@ -79,6 +80,15 @@ export class TasksController {
     @Param('id') id: string,
   ): Promise<{ targets: TaskStatus[] }> {
     return this.tasksService.getAllowedTransitions(id, user.userId);
+  }
+
+  @Patch('tasks/:id')
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateTaskDto,
+  ): Promise<Task> {
+    return this.tasksService.update(id, user.userId, dto);
   }
 
   @Patch('tasks/:id/status')
