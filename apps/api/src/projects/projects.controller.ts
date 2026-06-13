@@ -10,20 +10,13 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import {
-  Project,
-  ProjectMember,
-} from '../generated/prisma/client.js';
+import { Project } from '../generated/prisma/client.js';
 import {
   AuthUser,
   CurrentUser,
 } from '../auth/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
-import {
-  AddProjectMemberDto,
-  CreateProjectDto,
-  UpdateProjectDto,
-} from './dto/index.js';
+import { CreateProjectDto, UpdateProjectDto } from './dto/index.js';
 import {
   ProjectActivityItem,
   ProjectStats,
@@ -93,37 +86,5 @@ export class ProjectsController {
     @Param('id') projectId: string,
   ): Promise<ProjectActivityItem[]> {
     return this.projectsService.getActivity(projectId, user.userId);
-  }
-
-  @Get('projects/:id/members')
-  listMembers(
-    @CurrentUser() user: AuthUser,
-    @Param('id') projectId: string,
-  ): Promise<ProjectMember[]> {
-    return this.projectsService.listMembers(projectId, user.userId);
-  }
-
-  @HttpCode(HttpStatus.CREATED)
-  @Post('projects/:id/members')
-  addMember(
-    @CurrentUser() user: AuthUser,
-    @Param('id') projectId: string,
-    @Body() dto: AddProjectMemberDto,
-  ): Promise<ProjectMember> {
-    return this.projectsService.addMember(projectId, user.userId, dto);
-  }
-
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @Delete('projects/:id/members/:userId')
-  removeMember(
-    @CurrentUser() user: AuthUser,
-    @Param('id') projectId: string,
-    @Param('userId') memberUserId: string,
-  ): Promise<void> {
-    return this.projectsService.removeMember(
-      projectId,
-      user.userId,
-      memberUserId,
-    );
   }
 }

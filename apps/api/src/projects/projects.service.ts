@@ -1,13 +1,10 @@
 import {
-  BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
   ClientApprovalType,
   Project,
-  ProjectMember,
   TaskEventType,
   TaskStatus,
   WorkspaceRole,
@@ -18,17 +15,12 @@ import {
   assertWorkspaceExists,
   getWorkspaceRole,
   isAgencyRole,
-  isUniqueConstraintError,
   loadProjectAndAssertAccess,
   userBriefSelect,
   type UserBrief,
 } from '../common/index.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import {
-  AddProjectMemberDto,
-  CreateProjectDto,
-  UpdateProjectDto,
-} from './dto/index.js';
+import { CreateProjectDto, UpdateProjectDto } from './dto/index.js';
 
 export type ProjectStats = {
   clientHandoff: number;
@@ -277,108 +269,6 @@ export class ProjectsService {
 
     await this.prisma.project.delete({
       where: { id: projectId },
-    });
-  }
-
-  async listMembers(
-    projectId: string,
-    userId: string,
-  ): Promise<ProjectMember[]> {
-    const project = await loadProjectAndAssertAccess(
-      this.prisma,
-      projectId,
-      userId,
-    );
-
-    await assertAgencyRole(
-      this.prisma,
-      project.workspaceId,
-      userId,
-      'Only admin or manager can manage projects',
-    );
-
-    return this.prisma.projectMember.findMany({
-      where: { projectId },
-      orderBy: { createdAt: 'asc' },
-    });
-  }
-
-  async addMember(
-    projectId: string,
-    userId: string,
-    dto: AddProjectMemberDto,
-  ): Promise<ProjectMember> {
-    const project = await loadProjectAndAssertAccess(
-      this.prisma,
-      projectId,
-      userId,
-    );
-
-    await assertAgencyRole(
-      this.prisma,
-      project.workspaceId,
-      userId,
-      'Only admin or manager can manage projects',
-    );
-
-    const workspaceMember = await this.prisma.workspaceMember.findUnique({
-      where: {
-        workspaceId_userId: {
-          workspaceId: project.workspaceId,
-          userId: dto.userId,
-        },
-      },
-    });
-
-    if (!workspaceMember) {
-      throw new BadRequestException('User is not a member of this workspace');
-    }
-
-    try {
-      return await this.prisma.projectMember.create({
-        data: {
-          projectId,
-          userId: dto.userId,
-        },
-      });
-    } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        throw new ConflictException('User is already a member of this project');
-      }
-      throw error;
-    }
-  }
-
-  async removeMember(
-    projectId: string,
-    userId: string,
-    memberUserId: string,
-  ): Promise<void> {
-    const project = await loadProjectAndAssertAccess(
-      this.prisma,
-      projectId,
-      userId,
-    );
-
-    await assertAgencyRole(
-      this.prisma,
-      project.workspaceId,
-      userId,
-      'Only admin or manager can manage projects',
-    );
-
-    const membership = await this.prisma.projectMember.findUnique({
-      where: {
-        projectId_userId: { projectId, userId: memberUserId },
-      },
-    });
-
-    if (!membership) {
-      throw new NotFoundException('Project member not found');
-    }
-
-    await this.prisma.projectMember.delete({
-      where: { id: membership.id },
     });
   }
 

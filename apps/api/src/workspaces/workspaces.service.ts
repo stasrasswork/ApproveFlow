@@ -2,13 +2,17 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import {
   Workspace,
   WorkspaceRole,
 } from '../generated/prisma/client.js';
-import { isUniqueConstraintError, slugify } from '../common/index.js';
+import {
+  assertWorkspaceExists,
+  getWorkspaceRole,
+  isUniqueConstraintError,
+  slugify,
+} from '../common/index.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateWorkspaceDto, UpdateWorkspaceDto } from './dto/index.js';
 
@@ -37,6 +41,8 @@ export class WorkspacesService {
     workspaceId: string,
     userId: string,
   ): Promise<WorkspaceWithRole> {
+    await assertWorkspaceExists(this.prisma, workspaceId);
+
     const membership = await this.prisma.workspaceMember.findUnique({
       where: {
         workspaceId_userId: { workspaceId, userId },
@@ -45,15 +51,6 @@ export class WorkspacesService {
     });
 
     if (!membership) {
-      const workspace = await this.prisma.workspace.findUnique({
-        where: { id: workspaceId },
-        select: { id: true },
-      });
-
-      if (!workspace) {
-        throw new NotFoundException(`Workspace ${workspaceId} not found`);
-      }
-
       throw new ForbiddenException('Not a member of this workspace');
     }
 
@@ -98,27 +95,10 @@ export class WorkspacesService {
     userId: string,
     dto: UpdateWorkspaceDto,
   ): Promise<Workspace> {
-    const workspace = await this.prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: { id: true },
-    });
+    await assertWorkspaceExists(this.prisma, workspaceId);
+    const role = await getWorkspaceRole(this.prisma, workspaceId, userId);
 
-    if (!workspace) {
-      throw new NotFoundException(`Workspace ${workspaceId} not found`);
-    }
-
-    const membership = await this.prisma.workspaceMember.findUnique({
-      where: {
-        workspaceId_userId: { workspaceId, userId },
-      },
-      select: { role: true },
-    });
-
-    if (!membership) {
-      throw new ForbiddenException('Not a member of this workspace');
-    }
-
-    if (membership.role !== WorkspaceRole.ADMIN) {
+    if (role !== WorkspaceRole.ADMIN) {
       throw new ForbiddenException('Only admin can update workspace');
     }
 
@@ -139,24 +119,10 @@ export class WorkspacesService {
     workspaceId: string,
     userId: string,
   ): Promise<void> {
-    const workspace = await this.prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: { id: true },
-    });
+    await assertWorkspaceExists(this.prisma, workspaceId);
+    const role = await getWorkspaceRole(this.prisma, workspaceId, userId);
 
-    if (!workspace) {
-      throw new NotFoundException(`Workspace ${workspaceId} not found`);
-    }
-
-    const membership = await this.prisma.workspaceMember.findUnique({
-      where: { workspaceId_userId: { workspaceId, userId } },
-    });
-
-    if (!membership) {
-      throw new ForbiddenException('Not a member of this workspace');
-    }
-
-    if (membership.role !== WorkspaceRole.ADMIN) {
+    if (role !== WorkspaceRole.ADMIN) {
       throw new ForbiddenException('Only admin can delete workspace');
     }
 

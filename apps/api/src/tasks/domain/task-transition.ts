@@ -9,8 +9,8 @@ import {
   TaskEventType,
   TaskStatus,
   WorkspaceRole,
-} from '../generated/prisma/client.js';
-import { AGENCY_ROLES } from '../common/index.js';
+} from '../../generated/prisma/client.js';
+import { AGENCY_ROLES } from '../../common/index.js';
 
 type TransitionRule = {
   from: TaskStatus;

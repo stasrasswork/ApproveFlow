@@ -8,14 +8,14 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { Comment } from '../generated/prisma/client.js';
+import { Comment } from '../../generated/prisma/client.js';
 import {
   AuthUser,
   CurrentUser,
-} from '../auth/current-user.decorator.js';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+} from '../../auth/current-user.decorator.js';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard.js';
+import { CreateCommentDto } from '../dto/index.js';
 import { CommentsService } from './comments.service.js';
-import { CreateCommentDto } from './dto/index.js';
 
 @UseGuards(JwtAuthGuard)
 @Controller('tasks/:taskId/comments')
