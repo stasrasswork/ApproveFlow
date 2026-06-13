@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { hash, verify } from 'argon2';
+import { WorkspaceRole } from '../generated/prisma/client.js';
+import { userBriefSelect } from '../common/user-brief.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LoginDto, RefreshDto, RegisterDto } from './dto/index.js';
 
@@ -23,6 +25,17 @@ export type RegisterResult = SafeUser & {
   message: string;
 };
 
+export type MeWorkspace = {
+  id: string;
+  name: string;
+  slug: string;
+  role: WorkspaceRole;
+};
+
+export type MeResult = SafeUser & {
+  workspaces: MeWorkspace[];
+};
+
 type TokenPayload = {
   sub: string;
   typ: 'access' | 'refresh';
@@ -34,6 +47,39 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
   ) {}
+
+  async me(userId: string): Promise<MeResult> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        ...userBriefSelect,
+        workspaceMemberships: {
+          include: {
+            workspace: {
+              select: { id: true, name: true, slug: true },
+            },
+          },
+          orderBy: { workspace: { createdAt: 'desc' } },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      workspaces: user.workspaceMemberships.map((membership) => ({
+        id: membership.workspace.id,
+        name: membership.workspace.name,
+        slug: membership.workspace.slug,
+        role: membership.role,
+      })),
+    };
+  }
 
   async login(loginDto: LoginDto): Promise<AuthTokens> {
     const user = await this.prisma.user.findUnique({

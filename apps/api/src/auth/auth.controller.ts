@@ -1,16 +1,21 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import {
   AuthService,
   AuthTokens,
+  MeResult,
   RegisterResult,
 } from './auth.service.js';
+import { AuthUser, CurrentUser } from './current-user.decorator.js';
 import { LoginDto, RefreshDto, RegisterDto } from './dto/index.js';
+import { JwtAuthGuard } from './jwt-auth.guard.js';
 
 @Controller('auth')
 export class AuthController {
@@ -32,5 +37,11 @@ export class AuthController {
   @Post('refresh')
   refresh(@Body() refreshDto: RefreshDto): Promise<AuthTokens> {
     return this.authService.refresh(refreshDto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  me(@CurrentUser() user: AuthUser): Promise<MeResult> {
+    return this.authService.me(user.userId);
   }
 }
