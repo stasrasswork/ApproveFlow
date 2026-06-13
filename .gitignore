@@ -5,6 +5,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+!.env.test.example
 
 # Prisma generated client (regenerate with npm run db:generate)
 apps/api/src/generated/
