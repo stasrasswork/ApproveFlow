@@ -6,8 +6,8 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
-  Put,
   UseGuards,
 } from '@nestjs/common';
 import { Workspace } from '../generated/prisma/client.js';
@@ -49,7 +49,7 @@ export class WorkspacesController {
     return this.workspacesService.create(user.userId, dto);
   }
 
-  @Put(':id')
+  @Patch(':id')
   update(
     @CurrentUser() user: AuthUser,
     @Param('id') workspaceId: string,

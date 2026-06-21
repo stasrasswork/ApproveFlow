@@ -6,7 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { hash, verify } from 'argon2';
 import { WorkspaceRole } from '../generated/prisma/client.js';
-import { userBriefSelect } from '../common/user-brief.js';
+import { userBriefSelect } from '../common/index.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LoginDto, RefreshDto, RegisterDto } from './dto/index.js';
 

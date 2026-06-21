@@ -1,6 +1,5 @@
 import {
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import {
   ClientApprovalType,
@@ -11,7 +10,6 @@ import {
 } from '../generated/prisma/client.js';
 import {
   assertAgencyRole,
-  assertProjectAccess,
   assertWorkspaceExists,
   getWorkspaceRole,
   isAgencyRole,
@@ -114,16 +112,10 @@ export class ProjectsService {
   }
 
   async findOne(projectId: string, userId: string): Promise<Project> {
-    const project = await this.prisma.project.findUnique({
+    await loadProjectAndAssertAccess(this.prisma, projectId, userId);
+    return this.prisma.project.findUniqueOrThrow({
       where: { id: projectId },
     });
-
-    if (!project) {
-      throw new NotFoundException(`Project ${projectId} not found`);
-    }
-
-    await assertProjectAccess(this.prisma, project, userId);
-    return project;
   }
 
   async getStats(projectId: string, userId: string): Promise<ProjectStats> {
@@ -228,18 +220,15 @@ export class ProjectsService {
     userId: string,
     dto: UpdateProjectDto,
   ): Promise<Project> {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-      select: { id: true, workspaceId: true },
-    });
-
-    if (!project) {
-      throw new NotFoundException(`Project ${projectId} not found`);
-    }
+    const { workspaceId } = await loadProjectAndAssertAccess(
+      this.prisma,
+      projectId,
+      userId,
+    );
 
     await assertAgencyRole(
       this.prisma,
-      project.workspaceId,
+      workspaceId,
       userId,
       'Only admin or manager can manage projects',
     );
@@ -251,18 +240,15 @@ export class ProjectsService {
   }
 
   async delete(projectId: string, userId: string): Promise<void> {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-      select: { id: true, workspaceId: true },
-    });
-
-    if (!project) {
-      throw new NotFoundException(`Project ${projectId} not found`);
-    }
+    const { workspaceId } = await loadProjectAndAssertAccess(
+      this.prisma,
+      projectId,
+      userId,
+    );
 
     await assertAgencyRole(
       this.prisma,
-      project.workspaceId,
+      workspaceId,
       userId,
       'Only admin or manager can manage projects',
     );

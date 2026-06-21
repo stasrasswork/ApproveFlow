@@ -9,9 +9,15 @@ import {
   assertAgencyRole,
   isUniqueConstraintError,
   loadProjectAndAssertAccess,
+  userBriefSelect,
+  type UserBrief,
 } from '../common/index.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AddProjectMemberDto } from './dto/index.js';
+
+export type ProjectMemberWithUser = ProjectMember & {
+  user: UserBrief;
+};
 
 @Injectable()
 export class ProjectMembersService {
@@ -20,7 +26,7 @@ export class ProjectMembersService {
   async list(
     projectId: string,
     userId: string,
-  ): Promise<ProjectMember[]> {
+  ): Promise<ProjectMemberWithUser[]> {
     const project = await loadProjectAndAssertAccess(
       this.prisma,
       projectId,
@@ -36,6 +42,7 @@ export class ProjectMembersService {
 
     return this.prisma.projectMember.findMany({
       where: { projectId },
+      include: { user: { select: userBriefSelect } },
       orderBy: { createdAt: 'asc' },
     });
   }
@@ -44,7 +51,7 @@ export class ProjectMembersService {
     projectId: string,
     userId: string,
     dto: AddProjectMemberDto,
-  ): Promise<ProjectMember> {
+  ): Promise<ProjectMemberWithUser> {
     const project = await loadProjectAndAssertAccess(
       this.prisma,
       projectId,
@@ -77,6 +84,7 @@ export class ProjectMembersService {
           projectId,
           userId: dto.userId,
         },
+        include: { user: { select: userBriefSelect } },
       });
     } catch (error) {
       if (isUniqueConstraintError(error)) {

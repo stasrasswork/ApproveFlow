@@ -39,6 +39,16 @@ type TaskWithProject = Task & {
   project: { id: string; workspaceId: string };
 };
 
+const taskViewInclude = {
+  assignee: { select: userBriefSelect },
+  creator: { select: userBriefSelect },
+} as const;
+
+export type TaskView = Task & {
+  assignee: UserBrief | null;
+  creator: UserBrief;
+};
+
 export type TaskEventView = TaskEvent & {
   actor: UserBrief;
 };
@@ -74,7 +84,7 @@ export class TasksService {
     });
   }
 
-  async findByProject(projectId: string, userId: string): Promise<Task[]> {
+  async findByProject(projectId: string, userId: string): Promise<TaskView[]> {
     const { role } = await loadProjectAndAssertAccess(
       this.prisma,
       projectId,
@@ -88,6 +98,7 @@ export class TasksService {
 
     return this.prisma.task.findMany({
       where,
+      include: taskViewInclude,
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -96,7 +107,7 @@ export class TasksService {
     projectId: string,
     userId: string,
     dto: CreateTaskDto,
-  ): Promise<Task> {
+  ): Promise<TaskView> {
     const { role, workspaceId } = await loadProjectAndAssertAccess(
       this.prisma,
       projectId,
@@ -127,13 +138,14 @@ export class TasksService {
         sprintLabel: dto.sprintLabel,
         status: TaskStatus.BRIEF,
       },
+      include: taskViewInclude,
     });
   }
 
-  async findOne(taskId: string, userId: string): Promise<Task> {
+  async findOne(taskId: string, userId: string): Promise<TaskView> {
     const task = await this.loadTask(taskId);
     await this.assertTaskAccess(task, userId);
-    return task;
+    return this.getTaskView(taskId);
   }
 
   async assertCanAccessTask(taskId: string, userId: string): Promise<void> {
@@ -145,7 +157,7 @@ export class TasksService {
     taskId: string,
     userId: string,
     dto: TransitionTaskDto,
-  ): Promise<Task> {
+  ): Promise<TaskView> {
     const task = await this.loadTask(taskId);
     const role = await this.getWorkspaceRoleForTask(task, userId);
 
@@ -196,9 +208,14 @@ export class TasksService {
         },
       });
 
-      return tx.task.update({
+      await tx.task.update({
         where: { id: taskId },
         data: { status: dto.to },
+      });
+
+      return tx.task.findUniqueOrThrow({
+        where: { id: taskId },
+        include: taskViewInclude,
       });
     });
   }
@@ -219,7 +236,7 @@ export class TasksService {
     taskId: string,
     userId: string,
     dto: UpdateTaskDto,
-  ): Promise<Task> {
+  ): Promise<TaskView> {
     const task = await this.loadTask(taskId);
     const role = await this.getWorkspaceRoleForTask(task, userId);
 
@@ -253,6 +270,7 @@ export class TasksService {
         ...(dto.assigneeId !== undefined && { assigneeId: dto.assigneeId }),
         ...(dto.sprintLabel !== undefined && { sprintLabel: dto.sprintLabel }),
       },
+      include: taskViewInclude,
     });
   }
 
@@ -260,7 +278,7 @@ export class TasksService {
     taskId: string,
     userId: string,
     dto: UpdateTaskDueDto,
-  ): Promise<Task> {
+  ): Promise<TaskView> {
     const task = await this.loadTask(taskId);
     const role = await this.getWorkspaceRoleForTask(task, userId);
 
@@ -283,7 +301,7 @@ export class TasksService {
       dto.dueAt !== undefined && !this.isSameDueAt(task.dueAt, newDueAt);
 
     if (!dueChanged) {
-      return task;
+      return this.getTaskView(taskId);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -297,10 +315,22 @@ export class TasksService {
         },
       });
 
-      return tx.task.update({
+      await tx.task.update({
         where: { id: taskId },
         data: { dueAt: newDueAt },
       });
+
+      return tx.task.findUniqueOrThrow({
+        where: { id: taskId },
+        include: taskViewInclude,
+      });
+    });
+  }
+
+  private getTaskView(taskId: string): Promise<TaskView> {
+    return this.prisma.task.findUniqueOrThrow({
+      where: { id: taskId },
+      include: taskViewInclude,
     });
   }
 

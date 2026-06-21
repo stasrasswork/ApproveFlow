@@ -2,21 +2,17 @@ import {
   Body,
   Controller,
   Get,
-  HttpCode,
-  HttpStatus,
   Param,
   Patch,
-  Post,
   UseGuards,
 } from '@nestjs/common';
-import { Task, TaskStatus } from '../generated/prisma/client.js';
+import { TaskStatus } from '../generated/prisma/client.js';
 import {
   AuthUser,
   CurrentUser,
 } from '../auth/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import {
-  CreateTaskDto,
   TransitionTaskDto,
   UpdateTaskDto,
   UpdateTaskDueDto,
@@ -24,41 +20,24 @@ import {
 import {
   TaskDueChangeView,
   TaskEventView,
+  TaskView,
   TasksService,
 } from './tasks.service.js';
 
 @UseGuards(JwtAuthGuard)
-@Controller()
+@Controller('tasks')
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
-  @Get('projects/:projectId/tasks')
-  findByProject(
-    @CurrentUser() user: AuthUser,
-    @Param('projectId') projectId: string,
-  ): Promise<Task[]> {
-    return this.tasksService.findByProject(projectId, user.userId);
-  }
-
-  @HttpCode(HttpStatus.CREATED)
-  @Post('projects/:projectId/tasks')
-  create(
-    @CurrentUser() user: AuthUser,
-    @Param('projectId') projectId: string,
-    @Body() dto: CreateTaskDto,
-  ): Promise<Task> {
-    return this.tasksService.create(projectId, user.userId, dto);
-  }
-
-  @Get('tasks/:id')
+  @Get(':id')
   findOne(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
-  ): Promise<Task> {
+  ): Promise<TaskView> {
     return this.tasksService.findOne(id, user.userId);
   }
 
-  @Get('tasks/:id/events')
+  @Get(':id/events')
   getEvents(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -66,7 +45,7 @@ export class TasksController {
     return this.tasksService.getEvents(id, user.userId);
   }
 
-  @Get('tasks/:id/due-changes')
+  @Get(':id/due-changes')
   getDueChanges(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -74,7 +53,7 @@ export class TasksController {
     return this.tasksService.getDueChanges(id, user.userId);
   }
 
-  @Get('tasks/:id/allowed-transitions')
+  @Get(':id/allowed-transitions')
   getAllowedTransitions(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -82,30 +61,30 @@ export class TasksController {
     return this.tasksService.getAllowedTransitions(id, user.userId);
   }
 
-  @Patch('tasks/:id')
+  @Patch(':id')
   update(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
     @Body() dto: UpdateTaskDto,
-  ): Promise<Task> {
+  ): Promise<TaskView> {
     return this.tasksService.update(id, user.userId, dto);
   }
 
-  @Patch('tasks/:id/status')
+  @Patch(':id/status')
   transition(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
     @Body() dto: TransitionTaskDto,
-  ): Promise<Task> {
+  ): Promise<TaskView> {
     return this.tasksService.transition(id, user.userId, dto);
   }
 
-  @Patch('tasks/:id/due')
+  @Patch(':id/due')
   updateDue(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
     @Body() dto: UpdateTaskDueDto,
-  ): Promise<Task> {
+  ): Promise<TaskView> {
     return this.tasksService.updateDue(id, user.userId, dto);
   }
 }

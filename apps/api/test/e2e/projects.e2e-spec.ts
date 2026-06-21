@@ -80,12 +80,12 @@ describeWithSeededApp('Projects (e2e)', (getContext) => {
     });
   });
 
-  it('PUT /projects/:id updates project for manager', async () => {
+  it('PATCH /projects/:id updates project for manager', async () => {
     const { app } = getContext();
     const token = await loginAs(app, 'manager@test.local', SEED_PASSWORD);
 
     const response = await request(app.getHttpServer())
-      .put(`/projects/${SEED_IDS.project}`)
+      .patch(`/projects/${SEED_IDS.project}`)
       .set(authHeader(token))
       .send({ name: 'Updated project', description: 'New description' })
       .expect(200);
@@ -195,7 +195,14 @@ describeWithSeededApp('Projects (e2e)', (getContext) => {
       .send({ userId: invitee!.id })
       .expect(201);
 
-    expect(response.body.userId).toBe(invitee!.id);
+    expect(response.body).toMatchObject({
+      userId: invitee!.id,
+      user: {
+        id: invitee!.id,
+        email: 'project-only@test.local',
+        name: 'Project Only',
+      },
+    });
   });
 
   it('DELETE /projects/:id removes disposable project', async () => {

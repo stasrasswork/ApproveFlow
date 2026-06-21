@@ -38,6 +38,11 @@ describeWithSeededApp('Comments (e2e)', (getContext) => {
       taskId: SEED_IDS.taskMemberDemo,
       authorId: SEED_IDS.member,
       body: 'Progress update',
+      author: {
+        id: SEED_IDS.member,
+        email: 'member@test.local',
+        name: 'Member',
+      },
     });
 
     const listed = await request(app.getHttpServer())
@@ -46,7 +51,14 @@ describeWithSeededApp('Comments (e2e)', (getContext) => {
       .expect(200);
 
     expect(listed.body).toHaveLength(1);
-    expect(listed.body[0].body).toBe('Progress update');
+    expect(listed.body[0]).toMatchObject({
+      body: 'Progress update',
+      author: {
+        id: SEED_IDS.member,
+        email: 'member@test.local',
+        name: 'Member',
+      },
+    });
   });
 
   it('POST /tasks/:id/comments allows client on assigned project task', async () => {

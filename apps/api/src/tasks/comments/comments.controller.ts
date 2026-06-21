@@ -8,14 +8,13 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { Comment } from '../../generated/prisma/client.js';
 import {
   AuthUser,
   CurrentUser,
 } from '../../auth/current-user.decorator.js';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard.js';
-import { CreateCommentDto } from '../dto/index.js';
-import { CommentsService } from './comments.service.js';
+import { CreateCommentDto } from './dto/index.js';
+import { CommentView, CommentsService } from './comments.service.js';
 
 @UseGuards(JwtAuthGuard)
 @Controller('tasks/:taskId/comments')
@@ -26,7 +25,7 @@ export class CommentsController {
   findByTask(
     @CurrentUser() user: AuthUser,
     @Param('taskId') taskId: string,
-  ): Promise<Comment[]> {
+  ): Promise<CommentView[]> {
     return this.commentsService.findByTask(taskId, user.userId);
   }
 
@@ -36,7 +35,7 @@ export class CommentsController {
     @CurrentUser() user: AuthUser,
     @Param('taskId') taskId: string,
     @Body() dto: CreateCommentDto,
-  ): Promise<Comment> {
+  ): Promise<CommentView> {
     return this.commentsService.create(taskId, user.userId, dto);
   }
 }

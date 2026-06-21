@@ -9,14 +9,13 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ProjectMember } from '../generated/prisma/client.js';
 import {
   AuthUser,
   CurrentUser,
 } from '../auth/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { AddProjectMemberDto } from './dto/index.js';
-import { ProjectMembersService } from './project-members.service.js';
+import { ProjectMemberWithUser, ProjectMembersService } from './project-members.service.js';
 
 @UseGuards(JwtAuthGuard)
 @Controller('projects/:projectId/members')
@@ -29,7 +28,7 @@ export class ProjectMembersController {
   list(
     @CurrentUser() user: AuthUser,
     @Param('projectId') projectId: string,
-  ): Promise<ProjectMember[]> {
+  ): Promise<ProjectMemberWithUser[]> {
     return this.projectMembersService.list(projectId, user.userId);
   }
 
@@ -39,7 +38,7 @@ export class ProjectMembersController {
     @CurrentUser() user: AuthUser,
     @Param('projectId') projectId: string,
     @Body() dto: AddProjectMemberDto,
-  ): Promise<ProjectMember> {
+  ): Promise<ProjectMemberWithUser> {
     return this.projectMembersService.add(projectId, user.userId, dto);
   }
 

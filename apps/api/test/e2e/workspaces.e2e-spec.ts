@@ -89,7 +89,7 @@ describeWithSeededApp('Workspaces (e2e)', (getContext) => {
     );
   });
 
-  it('PUT /workspaces/:id allows admin and rejects manager', async () => {
+  it('PATCH /workspaces/:id allows admin and rejects manager', async () => {
     const { app } = getContext();
     const adminToken = await loginAs(app, 'admin@test.local', SEED_PASSWORD);
     const managerToken = await loginAs(
@@ -99,7 +99,7 @@ describeWithSeededApp('Workspaces (e2e)', (getContext) => {
     );
 
     const updated = await request(app.getHttpServer())
-      .put(`/workspaces/${SEED_IDS.workspace}`)
+      .patch(`/workspaces/${SEED_IDS.workspace}`)
       .set(authHeader(adminToken))
       .send({ name: 'Renamed workspace' })
       .expect(200);
@@ -107,7 +107,7 @@ describeWithSeededApp('Workspaces (e2e)', (getContext) => {
     expect(updated.body.name).toBe('Renamed workspace');
 
     await request(app.getHttpServer())
-      .put(`/workspaces/${SEED_IDS.workspace}`)
+      .patch(`/workspaces/${SEED_IDS.workspace}`)
       .set(authHeader(managerToken))
       .send({ name: 'Blocked rename' })
       .expect(403);

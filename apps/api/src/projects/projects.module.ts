@@ -5,10 +5,15 @@ import { ProjectMembersController } from './project-members.controller.js';
 import { ProjectMembersService } from './project-members.service.js';
 import { ProjectsController } from './projects.controller.js';
 import { ProjectsService } from './projects.service.js';
+import { WorkspaceProjectsController } from './workspace-projects.controller.js';
 
 @Module({
   imports: [PrismaModule, AuthModule],
-  controllers: [ProjectsController, ProjectMembersController],
+  controllers: [
+    WorkspaceProjectsController,
+    ProjectsController,
+    ProjectMembersController,
+  ],
   providers: [ProjectsService, ProjectMembersService],
   exports: [ProjectsService, ProjectMembersService],
 })

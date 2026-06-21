@@ -6,8 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  Post,
-  Put,
+  Patch,
   UseGuards,
 } from '@nestjs/common';
 import { Project } from '../generated/prisma/client.js';
@@ -16,7 +15,7 @@ import {
   CurrentUser,
 } from '../auth/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
-import { CreateProjectDto, UpdateProjectDto } from './dto/index.js';
+import { UpdateProjectDto } from './dto/index.js';
 import {
   ProjectActivityItem,
   ProjectStats,
@@ -24,29 +23,11 @@ import {
 } from './projects.service.js';
 
 @UseGuards(JwtAuthGuard)
-@Controller()
+@Controller('projects')
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
-  @Get('workspaces/:workspaceId/projects')
-  findByWorkspace(
-    @CurrentUser() user: AuthUser,
-    @Param('workspaceId') workspaceId: string,
-  ): Promise<Project[]> {
-    return this.projectsService.findByWorkspace(workspaceId, user.userId);
-  }
-
-  @HttpCode(HttpStatus.CREATED)
-  @Post('workspaces/:workspaceId/projects')
-  create(
-    @CurrentUser() user: AuthUser,
-    @Param('workspaceId') workspaceId: string,
-    @Body() dto: CreateProjectDto,
-  ): Promise<Project> {
-    return this.projectsService.create(workspaceId, user.userId, dto);
-  }
-
-  @Get('projects/:id')
+  @Get(':id')
   findOne(
     @CurrentUser() user: AuthUser,
     @Param('id') projectId: string,
@@ -54,7 +35,7 @@ export class ProjectsController {
     return this.projectsService.findOne(projectId, user.userId);
   }
 
-  @Put('projects/:id')
+  @Patch(':id')
   update(
     @CurrentUser() user: AuthUser,
     @Param('id') projectId: string,
@@ -64,7 +45,7 @@ export class ProjectsController {
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Delete('projects/:id')
+  @Delete(':id')
   delete(
     @CurrentUser() user: AuthUser,
     @Param('id') projectId: string,
@@ -72,7 +53,7 @@ export class ProjectsController {
     return this.projectsService.delete(projectId, user.userId);
   }
 
-  @Get('projects/:id/stats')
+  @Get(':id/stats')
   getStats(
     @CurrentUser() user: AuthUser,
     @Param('id') projectId: string,
@@ -80,7 +61,7 @@ export class ProjectsController {
     return this.projectsService.getStats(projectId, user.userId);
   }
 
-  @Get('projects/:id/activity')
+  @Get(':id/activity')
   getActivity(
     @CurrentUser() user: AuthUser,
     @Param('id') projectId: string,
