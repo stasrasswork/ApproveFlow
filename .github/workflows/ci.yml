@@ -24,10 +24,6 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
-    defaults:
-      run:
-        working-directory: apps/api
-
     steps:
       - uses: actions/checkout@v4
 
@@ -35,27 +31,27 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: apps/api/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
+      - name: Lint API
+        run: npm run lint -w api
 
       - name: Generate Prisma client
-        run: npm run db:generate
+        run: npm run db:generate -w api
 
       - name: Run migrations
-        run: npx prisma migrate deploy
+        run: npm exec -w api -- prisma migrate deploy
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/approveflow_test?schema=public
 
       - name: Unit tests
-        run: npm run test:unit
+        run: npm run test:unit -w api
 
       - name: E2E tests
-        run: npm run test:e2e
+        run: npm run test:e2e -w api
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/approveflow_test?schema=public
           JWT_SECRET: ci-test-secret
@@ -63,10 +59,6 @@ jobs:
   web:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: apps/web
-
     steps:
       - uses: actions/checkout@v4
 
@@ -74,16 +66,16 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: apps/web/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
+      - name: Lint Web
+        run: npm run lint -w web
 
       - name: Unit tests
-        run: npm run test
+        run: npm run test -w web
 
       - name: Build
-        run: npm run build
+        run: npm run build -w web
