@@ -6,17 +6,21 @@ import type { WorkspaceRole } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Dropdown } from '../components/ui/Dropdown';
-import { Input, Field, FormStack, FormActions, InlineFormRow } from '../components/ui/Form';
+import { ErrorAlert } from '../components/ui/ErrorAlert';
+import { Input, Field, FormStack, FormActions } from '../components/ui/Form';
+import { getApiErrorMessage } from '../lib/api-error';
 import { roleDropdownOptions } from '../lib/dropdown-options';
 import { userDisplayName } from '../lib/format';
 import {
   canChangeMemberRoles,
-  canManageWorkspace,
   canRemoveMembers,
   canUpdateWorkspace,
+  isAgencyRole,
   ROLE_LABELS,
 } from '../lib/roles';
+import { isValidSlug, SLUG_VALIDATION_MESSAGE } from '../lib/slug';
 
 export function WorkspaceMembersPage() {
   const { workspaceId = '' } = useParams();
@@ -26,6 +30,13 @@ export function WorkspaceMembersPage() {
   const [email, setEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>('MEMBER');
   const [workspaceName, setWorkspaceName] = useState('');
+  const [workspaceSlug, setWorkspaceSlug] = useState('');
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<{
+    userId: string;
+    name: string;
+  } | null>(null);
 
   const { data: workspace } = useQuery({
     queryKey: ['workspace', workspaceId],
@@ -43,10 +54,14 @@ export function WorkspaceMembersPage() {
     mutationFn: () =>
       workspacesApi.members.invite(workspaceId, email, inviteRole),
     onSuccess: () => {
+      setInviteError(null);
       queryClient.invalidateQueries({
         queryKey: ['workspace-members', workspaceId],
       });
       setEmail('');
+    },
+    onError: (err) => {
+      setInviteError(getApiErrorMessage(err, 'Failed to invite member'));
     },
   });
 
@@ -72,32 +87,65 @@ export function WorkspaceMembersPage() {
       queryClient.invalidateQueries({
         queryKey: ['workspace-members', workspaceId],
       });
+      setMemberToRemove(null);
+    },
+    onError: (err) => {
+      setSettingsError(getApiErrorMessage(err, 'Failed to remove member'));
+      setMemberToRemove(null);
     },
   });
 
   const updateWorkspaceMutation = useMutation({
-    mutationFn: (name: string) => workspacesApi.update(workspaceId, { name }),
+    mutationFn: (data: { name?: string; slug?: string }) =>
+      workspacesApi.update(workspaceId, data),
     onSuccess: async () => {
+      setSettingsError(null);
       queryClient.invalidateQueries({ queryKey: ['workspace', workspaceId] });
       await refreshUser();
+    },
+    onError: (err) => {
+      setSettingsError(getApiErrorMessage(err, 'Failed to update workspace'));
     },
   });
 
   function handleInvite(event: FormEvent) {
     event.preventDefault();
+    setInviteError(null);
     inviteMutation.mutate();
   }
 
-  function handleWorkspaceRename(event: FormEvent) {
+  function handleWorkspaceSettings(event: FormEvent) {
     event.preventDefault();
-    const name = workspaceName.trim() || workspace?.name;
+    setSettingsError(null);
+
+    const name = (workspaceName.trim() || workspace?.name)?.trim();
+    const slug = (workspaceSlug.trim() || workspace?.slug)?.trim();
+
     if (!name) {
       return;
     }
-    updateWorkspaceMutation.mutate(name);
+
+    if (slug && !isValidSlug(slug)) {
+      setSettingsError(SLUG_VALIDATION_MESSAGE);
+      return;
+    }
+
+    const payload: { name?: string; slug?: string } = {};
+    if (name !== workspace?.name) {
+      payload.name = name;
+    }
+    if (slug && slug !== workspace?.slug) {
+      payload.slug = slug;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      return;
+    }
+
+    updateWorkspaceMutation.mutate(payload);
   }
 
-  const canManage = role ? canManageWorkspace(role) : false;
+  const canManage = role ? isAgencyRole(role) : false;
   const canEditRoles = role ? canChangeMemberRoles(role) : false;
   const canRemove = role ? canRemoveMembers(role) : false;
   const canRename = role ? canUpdateWorkspace(role) : false;
@@ -106,6 +154,26 @@ export function WorkspaceMembersPage() {
 
   return (
     <div className="space-y-8">
+      <ConfirmDialog
+        open={memberToRemove !== null}
+        title="Remove from workspace?"
+        description={
+          memberToRemove ? (
+            <>
+              Remove <strong>{memberToRemove.name}</strong> from this workspace?
+              They will lose access to all projects in it.
+            </>
+          ) : null
+        }
+        confirmLabel="Remove member"
+        loading={removeMemberMutation.isPending}
+        onConfirm={() => {
+          if (memberToRemove) {
+            removeMemberMutation.mutate(memberToRemove.userId);
+          }
+        }}
+        onCancel={() => setMemberToRemove(null)}
+      />
       <div>
         <Link
           to={`/w/${workspaceId}/projects`}
@@ -119,24 +187,37 @@ export function WorkspaceMembersPage() {
 
       {canRename ? (
         <Card title="Workspace settings" accent="emerald">
-          <form onSubmit={handleWorkspaceRename}>
-            <InlineFormRow align="end">
-              <Field label="Workspace name" htmlFor="workspace-name" className="min-w-0 flex-1">
+          <form onSubmit={handleWorkspaceSettings}>
+            <FormStack>
+              <Field label="Workspace name" htmlFor="workspace-name">
                 <Input
                   id="workspace-name"
-                  key={workspace?.name}
+                  key={`name-${workspace?.name}`}
                   defaultValue={workspace?.name ?? ''}
                   onChange={(e) => setWorkspaceName(e.target.value)}
                 />
               </Field>
-              <Button
-                type="submit"
-                variant="secondary"
-                disabled={updateWorkspaceMutation.isPending}
-              >
-                Save
-              </Button>
-            </InlineFormRow>
+              <Field label="URL slug" htmlFor="workspace-slug">
+                <Input
+                  id="workspace-slug"
+                  key={`slug-${workspace?.slug}`}
+                  defaultValue={workspace?.slug ?? ''}
+                  onChange={(e) => setWorkspaceSlug(e.target.value)}
+                  spellCheck={false}
+                  placeholder="my-agency"
+                />
+              </Field>
+              {settingsError ? <ErrorAlert message={settingsError} /> : null}
+              <FormActions>
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  disabled={updateWorkspaceMutation.isPending}
+                >
+                  Save changes
+                </Button>
+              </FormActions>
+            </FormStack>
           </form>
         </Card>
       ) : null}
@@ -169,6 +250,7 @@ export function WorkspaceMembersPage() {
                   />
                 </Field>
               </div>
+              {inviteError ? <ErrorAlert message={inviteError} /> : null}
               <FormActions>
                 <Button type="submit" disabled={inviteMutation.isPending}>
                   Send invite
@@ -232,7 +314,10 @@ export function WorkspaceMembersPage() {
                             className="text-rose-600 hover:text-rose-700"
                             disabled={removeMemberMutation.isPending}
                             onClick={() =>
-                              removeMemberMutation.mutate(member.userId)
+                              setMemberToRemove({
+                                userId: member.userId,
+                                name: userDisplayName(member.user),
+                              })
                             }
                           >
                             Remove

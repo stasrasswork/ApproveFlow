@@ -3,10 +3,13 @@ import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectsApi } from '../api/endpoints';
 import { useAuth } from '../auth/AuthContext';
+import { ProjectStatusBadge } from '../components/ui/ProjectStatusBadge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { ErrorAlert } from '../components/ui/ErrorAlert';
 import { Input, Textarea, Field, FormStack, FormActions } from '../components/ui/Form';
-import { canManageProjects } from '../lib/roles';
+import { getApiErrorMessage } from '../lib/api-error';
+import { isAgencyRole } from '../lib/roles';
 
 export function ProjectsPage() {
   const { workspaceId = '' } = useParams();
@@ -16,6 +19,7 @@ export function ProjectsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['projects', workspaceId],
@@ -27,19 +31,24 @@ export function ProjectsPage() {
     mutationFn: () =>
       projectsApi.create(workspaceId, name, description || undefined),
     onSuccess: () => {
+      setCreateError(null);
       queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
       setShowCreate(false);
       setName('');
       setDescription('');
     },
+    onError: (err) => {
+      setCreateError(getApiErrorMessage(err, 'Failed to create project'));
+    },
   });
 
   function handleCreate(event: FormEvent) {
     event.preventDefault();
+    setCreateError(null);
     createMutation.mutate();
   }
 
-  const canCreate = role ? canManageProjects(role) : false;
+  const canCreate = role ? isAgencyRole(role) : false;
 
   return (
     <div className="space-y-8">
@@ -82,6 +91,7 @@ export function ProjectsPage() {
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </Field>
+                <ErrorAlert message={createError} />
                 <FormActions>
                   <Button type="submit" disabled={createMutation.isPending}>
                     Create project
@@ -107,9 +117,12 @@ export function ProjectsPage() {
                 className="group block rounded-xl border border-slate-200/70 bg-white px-4 py-4 transition hover:border-brand-200 hover:bg-brand-50/40 hover:shadow-sm"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <h2 className="font-semibold text-slate-900 group-hover:text-brand-700">
-                    {project.name}
-                  </h2>
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <h2 className="font-semibold text-slate-900 group-hover:text-brand-700">
+                      {project.name}
+                    </h2>
+                    <ProjectStatusBadge status={project.status} />
+                  </div>
                   <span className="text-brand-400 opacity-0 transition group-hover:opacity-100">
                     →
                   </span>

@@ -2,18 +2,18 @@ import { type FormEvent, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { commentsApi, projectsApi, tasksApi, workspacesApi } from '../api/endpoints';
-import type { TaskStatus } from '../api/types';
-import { ApiError } from '../api/client';
+import type { AllowedTransitions, TaskStatus } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { AuthorLine } from '../components/ui/RoleBadge';
 import { Dropdown } from '../components/ui/Dropdown';
 import { Input, TitleInput, Textarea, Field, FormStack, FormActions, InlineFormRow } from '../components/ui/Form';
+import { StatusBadge } from '../components/ui/StatusBadge';
+import { getApiErrorMessage } from '../lib/api-error';
+import { LIVE_REFETCH_MS } from '../lib/constants';
 import { workspaceMemberDropdownOptions } from '../lib/dropdown-options';
 import { ensureAssigneeInProject } from '../lib/ensure-assignee';
-import { getEventTypeLabel } from '../lib/task-events';
-import { StatusBadge } from '../components/ui/StatusBadge';
 import {
   dateInputToIso,
   formatDate,
@@ -21,16 +21,13 @@ import {
   toDateInputValue,
   userDisplayName,
 } from '../lib/format';
-import { canChangeTaskStatus, isAgencyRole } from '../lib/roles';
 import {
-  getBlockingHint,
-  getTransitionLabel,
-  STATUS_LABELS,
-  transitionButtonVariant,
-  transitionNeedsComment,
-} from '../lib/task-status';
-
-const LIVE_REFETCH_MS = 15_000;
+  assigneeNeedsProjectAccess,
+  filterAssignableMembers,
+} from '../lib/members';
+import { isAgencyRole } from '../lib/roles';
+import { getEventTypeLabel } from '../lib/task-events';
+import { getBlockingHint, STATUS_LABELS } from '../lib/task-status';
 
 export function TaskPage() {
   const { workspaceId = '', projectId = '', taskId = '' } = useParams();
@@ -41,9 +38,9 @@ export function TaskPage() {
   const [commentBody, setCommentBody] = useState('');
   const [newComment, setNewComment] = useState('');
   const [transitionError, setTransitionError] = useState<string | null>(null);
-  const [pendingTransition, setPendingTransition] = useState<TaskStatus | null>(
-    null,
-  );
+  const [pendingTransition, setPendingTransition] = useState<
+    AllowedTransitions['targets'][number] | null
+  >(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -95,8 +92,9 @@ export function TaskPage() {
   });
 
   const projectMemberUserIds = new Set(projectMembers.map((member) => member.userId));
-  const assigneeNeedsProjectAccess = Boolean(
-    isEditing && editAssigneeId && !projectMemberUserIds.has(editAssigneeId),
+  const showAssigneeAccessHint = assigneeNeedsProjectAccess(
+    isEditing ? editAssigneeId : null,
+    projectMemberUserIds,
   );
 
   const invalidateTask = () => {
@@ -125,7 +123,7 @@ export function TaskPage() {
     },
     onError: (err) => {
       setTransitionError(
-        err instanceof ApiError ? err.message : 'Failed to change status',
+        getApiErrorMessage(err, 'Failed to change status'),
       );
     },
   });
@@ -138,6 +136,9 @@ export function TaskPage() {
       queryClient.invalidateQueries({
         queryKey: ['project-activity', projectId],
       });
+    },
+    onError: (err) => {
+      setTransitionError(getApiErrorMessage(err, 'Failed to post comment'));
     },
   });
 
@@ -175,6 +176,9 @@ export function TaskPage() {
       queryClient.invalidateQueries({ queryKey: ['task-due-changes', taskId] });
       queryClient.invalidateQueries({ queryKey: ['project-members', projectId] });
     },
+    onError: (err) => {
+      setTransitionError(getApiErrorMessage(err, 'Failed to save changes'));
+    },
   });
 
   if (!task) {
@@ -188,20 +192,19 @@ export function TaskPage() {
 
   const blocking = getBlockingHint(task.status);
   const agency = role ? isAgencyRole(role) : false;
-  const showTransitions =
-    role && canChangeTaskStatus(role) && (transitions?.targets.length ?? 0) > 0;
+  const showTransitions = (transitions?.targets.length ?? 0) > 0;
 
-  function handleTransition(to: TaskStatus) {
-    if (!role || !task) {
+  function handleTransition(target: AllowedTransitions['targets'][number]) {
+    if (!task) {
       return;
     }
 
-    if (transitionNeedsComment(task.status, to, role)) {
-      setPendingTransition(to);
+    if (target.requiresComment) {
+      setPendingTransition(target);
       return;
     }
 
-    transitionMutation.mutate({ to });
+    transitionMutation.mutate({ to: target.to });
   }
 
   function handleTransitionWithComment(event: FormEvent) {
@@ -210,7 +213,7 @@ export function TaskPage() {
       return;
     }
     transitionMutation.mutate({
-      to: pendingTransition,
+      to: pendingTransition.to,
       comment: commentBody.trim(),
     });
   }
@@ -237,10 +240,7 @@ export function TaskPage() {
   }
 
   const assigneeOptions = workspaceMemberDropdownOptions(
-    workspaceMembers.filter(
-      (m) =>
-        m.role === 'MEMBER' || m.role === 'MANAGER' || m.role === 'ADMIN',
-    ),
+    filterAssignableMembers(workspaceMembers),
     { includeEmpty: true, emptyLabel: 'Unassigned' },
   );
 
@@ -326,14 +326,14 @@ export function TaskPage() {
                 </p>
               ) : null}
               <div className="flex flex-wrap gap-2">
-                {transitions!.targets.map((to) => (
+                {transitions!.targets.map((target) => (
                   <Button
-                    key={to}
-                    variant={transitionButtonVariant(task.status, to)}
+                    key={target.to}
+                    variant={target.buttonVariant}
                     disabled={transitionMutation.isPending}
-                    onClick={() => handleTransition(to)}
+                    onClick={() => handleTransition(target)}
                   >
-                    {getTransitionLabel(task.status, to)}
+                    {target.label}
                   </Button>
                 ))}
               </div>
@@ -354,7 +354,7 @@ export function TaskPage() {
                   </Field>
                   <FormActions>
                     <Button type="submit" disabled={transitionMutation.isPending}>
-                      {getTransitionLabel(task.status, pendingTransition)}
+                      {pendingTransition.label}
                     </Button>
                     <Button
                       type="button"
@@ -432,7 +432,7 @@ export function TaskPage() {
                       compactTrigger
                       fullWidth
                     />
-                    {assigneeNeedsProjectAccess ? (
+                    {showAssigneeAccessHint ? (
                       <p className="mt-1.5 text-xs text-amber-700">
                         Assignee is not on this project yet — they will be added
                         automatically when you save.

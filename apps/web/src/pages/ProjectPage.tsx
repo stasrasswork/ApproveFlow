@@ -2,135 +2,31 @@ import { type FormEvent, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectsApi, tasksApi, workspacesApi } from '../api/endpoints';
-import type { ProjectActivityItem, TaskView } from '../api/types';
+import type { ProjectStatus, TaskView } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { ProjectActivityItem } from '../components/ProjectActivityItem';
+import { ProjectStatsOverview } from '../components/ProjectStatsOverview';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Dropdown } from '../components/ui/Dropdown';
 import { Input, Textarea, Field, FormStack, FormActions } from '../components/ui/Form';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { ProjectStatsOverview } from '../components/ProjectStatsOverview';
+import { ProjectStatusBadge } from '../components/ui/ProjectStatusBadge';
+import { RoleBadge } from '../components/ui/RoleBadge';
 import { StatusBadge } from '../components/ui/StatusBadge';
-import { AuthorLine, RoleBadge } from '../components/ui/RoleBadge';
+import { ErrorAlert } from '../components/ui/ErrorAlert';
+import { ACTIVITY_PAGE_SIZE, LIVE_REFETCH_MS } from '../lib/constants';
+import { getApiErrorMessage } from '../lib/api-error';
 import { workspaceMemberDropdownOptions } from '../lib/dropdown-options';
 import { ensureAssigneeInProject } from '../lib/ensure-assignee';
-import { formatDate, formatDateTime, userDisplayName } from '../lib/format';
-import { getEventTypeLabel } from '../lib/task-events';
-import { canCreateTasks, canManageProjects } from '../lib/roles';
+import { userDisplayName } from '../lib/format';
 import {
-  getBlockingHint,
-  STATUS_LABELS,
-} from '../lib/task-status';
-
-const ACTIVITY_PAGE_SIZE = 20;
-const LIVE_REFETCH_MS = 15_000;
-
-function ActivityItem({
-  item,
-  workspaceId,
-  projectId,
-}: {
-  item: ProjectActivityItem;
-  workspaceId: string;
-  projectId: string;
-}) {
-  const taskLink = `/w/${workspaceId}/projects/${projectId}/tasks/${item.taskId}`;
-
-  const dotColor =
-    item.type === 'status_changed'
-      ? 'bg-brand-500'
-      : item.type === 'comment'
-        ? 'bg-violet-500'
-        : 'bg-amber-500';
-
-  if (item.type === 'status_changed') {
-    const eventLabel = getEventTypeLabel(item.eventType, item.approvalType);
-    return (
-      <li className="flex gap-3 border-b border-slate-100 py-3 last:border-0">
-        <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
-        <div>
-          {item.actorRole ? (
-            <AuthorLine
-              author={item.actor}
-              role={item.actorRole}
-              timestamp={formatDateTime(item.occurredAt)}
-            />
-          ) : (
-            <p className="text-xs text-slate-500">{formatDateTime(item.occurredAt)}</p>
-          )}
-          <p className="mt-1 text-sm text-slate-700">
-            changed status on{' '}
-            <Link to={taskLink} className="font-medium text-brand-600 hover:underline">
-              {item.taskTitle}
-            </Link>
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            {STATUS_LABELS[item.fromStatus]} → {STATUS_LABELS[item.toStatus]}
-            {eventLabel ? ` · ${eventLabel}` : ''}
-          </p>
-          {item.comment ? (
-            <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-              {item.comment}
-            </p>
-          ) : null}
-        </div>
-      </li>
-    );
-  }
-
-  if (item.type === 'comment') {
-    return (
-      <li className="flex gap-3 border-b border-slate-100 py-3 last:border-0">
-        <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
-        <div>
-          {item.authorRole ? (
-            <AuthorLine
-              author={item.author}
-              role={item.authorRole}
-              timestamp={formatDateTime(item.occurredAt)}
-            />
-          ) : (
-            <p className="text-xs text-slate-500">{formatDateTime(item.occurredAt)}</p>
-          )}
-          <p className="mt-1 text-sm text-slate-700">
-            commented on{' '}
-            <Link to={taskLink} className="font-medium text-brand-600 hover:underline">
-              {item.taskTitle}
-            </Link>
-          </p>
-          <p className="mt-1 text-sm text-slate-600">{item.body}</p>
-        </div>
-      </li>
-    );
-  }
-
-  return (
-    <li className="flex gap-3 border-b border-slate-100 py-3 last:border-0">
-      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
-      <div>
-        {item.changedByRole ? (
-          <AuthorLine
-            author={item.changedBy}
-            role={item.changedByRole}
-            timestamp={formatDateTime(item.occurredAt)}
-          />
-        ) : (
-          <p className="text-xs text-slate-500">{formatDateTime(item.occurredAt)}</p>
-        )}
-        <p className="mt-1 text-sm text-slate-700">
-          updated due date on{' '}
-          <Link to={taskLink} className="font-medium text-brand-600 hover:underline">
-            {item.taskTitle}
-          </Link>
-        </p>
-        <p className="mt-1 text-xs text-slate-500">
-          {formatDate(item.oldDueAt)} → {formatDate(item.newDueAt)}
-          {item.reason ? ` · ${item.reason}` : ''}
-        </p>
-      </div>
-    </li>
-  );
-}
+  assigneeNeedsProjectAccess,
+  filterAssignableMembers,
+} from '../lib/members';
+import { isProjectOperational } from '../lib/project-status';
+import { isAgencyRole } from '../lib/roles';
+import { getBlockingHint, PROJECT_STATUS_OPTIONS } from '../lib/task-status';
 
 export function ProjectPage() {
   const { workspaceId = '', projectId = '' } = useParams();
@@ -142,6 +38,7 @@ export function ProjectPage() {
   const [isEditingProject, setIsEditingProject] = useState(false);
   const [editProjectName, setEditProjectName] = useState('');
   const [editProjectDescription, setEditProjectDescription] = useState('');
+  const [editProjectStatus, setEditProjectStatus] = useState<ProjectStatus>('ACTIVE');
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
@@ -152,6 +49,7 @@ export function ProjectPage() {
     userId: string;
     name: string;
   } | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const { data: project } = useQuery({
     queryKey: ['project', projectId],
@@ -181,20 +79,19 @@ export function ProjectPage() {
   const { data: projectMembers = [] } = useQuery({
     queryKey: ['project-members', projectId],
     queryFn: () => projectsApi.members.list(projectId),
-    enabled: Boolean(projectId) && Boolean(role && canManageProjects(role)),
+    enabled: Boolean(projectId) && Boolean(role && isAgencyRole(role)),
   });
 
   const { data: workspaceMembers = [] } = useQuery({
     queryKey: ['workspace-members', workspaceId],
     queryFn: () => workspacesApi.members.list(workspaceId),
-    enabled: Boolean(workspaceId) && Boolean(role && canManageProjects(role)),
+    enabled: Boolean(workspaceId) && Boolean(role && isAgencyRole(role)),
   });
 
-  const assignableMembers = useMemo(() => {
-    return workspaceMembers.filter(
-      (m) => m.role === 'MEMBER' || m.role === 'MANAGER' || m.role === 'ADMIN',
-    );
-  }, [workspaceMembers]);
+  const assignableMembers = useMemo(
+    () => filterAssignableMembers(workspaceMembers),
+    [workspaceMembers],
+  );
 
   const roleByUserId = useMemo(
     () => new Map(workspaceMembers.map((member) => [member.userId, member.role])),
@@ -211,8 +108,9 @@ export function ProjectPage() {
     [projectMembers],
   );
 
-  const assigneeNeedsProjectAccess = Boolean(
-    assigneeId && !projectMemberUserIds.has(assigneeId),
+  const showAssigneeAccessHint = assigneeNeedsProjectAccess(
+    assigneeId,
+    projectMemberUserIds,
   );
 
   const createTaskMutation = useMutation({
@@ -225,6 +123,7 @@ export function ProjectPage() {
       });
     },
     onSuccess: () => {
+      setActionError(null);
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project-stats', projectId] });
       setShowCreateTask(false);
@@ -232,13 +131,20 @@ export function ProjectPage() {
       setTaskDescription('');
       setAssigneeId('');
     },
+    onError: (err) => {
+      setActionError(getApiErrorMessage(err, 'Failed to create task'));
+    },
   });
 
   const addMemberMutation = useMutation({
     mutationFn: (userId: string) => projectsApi.members.add(projectId, userId),
     onSuccess: () => {
+      setActionError(null);
       queryClient.invalidateQueries({ queryKey: ['project-members', projectId] });
       setMemberUserId('');
+    },
+    onError: (err) => {
+      setActionError(getApiErrorMessage(err, 'Failed to add member'));
     },
   });
 
@@ -260,17 +166,25 @@ export function ProjectPage() {
   });
 
   const updateProjectMutation = useMutation({
-    mutationFn: (data: { name?: string; description?: string }) =>
-      projectsApi.update(projectId, data),
+    mutationFn: (data: {
+      name?: string;
+      description?: string;
+      status?: ProjectStatus;
+    }) => projectsApi.update(projectId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
       setIsEditingProject(false);
+      setActionError(null);
+    },
+    onError: (err) => {
+      setActionError(getApiErrorMessage(err, 'Failed to update project'));
     },
   });
 
   function handleCreateTask(event: FormEvent) {
     event.preventDefault();
+    setActionError(null);
     createTaskMutation.mutate();
   }
 
@@ -280,6 +194,7 @@ export function ProjectPage() {
     }
     setEditProjectName(project.name);
     setEditProjectDescription(project.description ?? '');
+    setEditProjectStatus(project.status);
     setIsEditingProject(true);
   }
 
@@ -295,10 +210,13 @@ export function ProjectPage() {
     updateProjectMutation.mutate({
       name,
       description: editProjectDescription || undefined,
+      status: editProjectStatus,
     });
   }
 
-  const canManage = role ? canManageProjects(role) : false;
+  const canManage = role ? isAgencyRole(role) : false;
+  const canCreateTask =
+    canManage && project ? isProjectOperational(project.status) : false;
   const visibleActivity = activity.slice(0, activityLimit);
   const hasMoreActivity = activity.length > activityLimit;
 
@@ -337,6 +255,17 @@ export function ProjectPage() {
         }}
         onCancel={() => setMemberToRemove(null)}
       />
+      {project?.status === 'PAUSED' ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          This project is paused. Work can continue, but consider resuming when ready.
+        </p>
+      ) : null}
+      {project?.status === 'COMPLETED' ? (
+        <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          This project is completed. New tasks and status changes are disabled.
+        </p>
+      ) : null}
+      <ErrorAlert message={actionError} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <Link
@@ -362,12 +291,27 @@ export function ProjectPage() {
                   onChange={(e) => setEditProjectDescription(e.target.value)}
                 />
               </Field>
+              <Field label="Project status">
+                <Dropdown
+                  value={editProjectStatus}
+                  onChange={(value) => setEditProjectStatus(value as ProjectStatus)}
+                  options={PROJECT_STATUS_OPTIONS.map((option) => ({
+                    value: option.value,
+                    label: option.label,
+                  }))}
+                  compactTrigger
+                  fullWidth
+                />
+              </Field>
             </div>
           ) : (
             <>
-              <h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-slate-900">
-                {project?.name ?? '…'}
-              </h1>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <h1 className="font-display text-3xl font-bold tracking-tight text-slate-900">
+                  {project?.name ?? '…'}
+                </h1>
+                {project ? <ProjectStatusBadge status={project.status} /> : null}
+              </div>
               {project?.description ? (
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
                   {project.description}
@@ -425,7 +369,7 @@ export function ProjectPage() {
             title="Tasks"
             accent="blue"
             actions={
-              role && canCreateTasks(role) ? (
+              role && canCreateTask ? (
                 <Button
                   type="button"
                   onClick={() => setShowCreateTask((v) => !v)}
@@ -465,7 +409,7 @@ export function ProjectPage() {
                         compactTrigger
                         fullWidth
                       />
-                      {assigneeNeedsProjectAccess ? (
+                      {showAssigneeAccessHint ? (
                         <p className="mt-1.5 text-xs text-amber-700">
                           Assignee is not on this project yet — they will be
                           added automatically when you create the task.
@@ -528,7 +472,7 @@ export function ProjectPage() {
               <>
                 <ul>
                   {visibleActivity.map((item) => (
-                    <ActivityItem
+                    <ProjectActivityItem
                       key={`${item.type}-${item.id}`}
                       item={item}
                       workspaceId={workspaceId}

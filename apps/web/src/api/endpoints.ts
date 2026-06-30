@@ -8,6 +8,7 @@ import type {
   ProjectActivityItem,
   ProjectMember,
   ProjectStats,
+  ProjectStatus,
   TaskDueChange,
   TaskEvent,
   TaskStatus,
@@ -38,8 +39,6 @@ export const authApi = {
 };
 
 export const workspacesApi = {
-  list: () => apiFetch<WorkspaceWithRole[]>('/workspaces'),
-
   create: (name: string, slug?: string) =>
     apiFetch<Workspace>('/workspaces', {
       method: 'POST',
@@ -48,7 +47,7 @@ export const workspacesApi = {
 
   get: (id: string) => apiFetch<WorkspaceWithRole>(`/workspaces/${id}`),
 
-  update: (id: string, data: { name?: string }) =>
+  update: (id: string, data: { name?: string; slug?: string }) =>
     apiFetch<WorkspaceWithRole>(`/workspaces/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -96,7 +95,7 @@ export const projectsApi = {
 
   get: (id: string) => apiFetch<Project>(`/projects/${id}`),
 
-  update: (id: string, data: { name?: string; description?: string }) =>
+  update: (id: string, data: { name?: string; description?: string; status?: ProjectStatus }) =>
     apiFetch<Project>(`/projects/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
