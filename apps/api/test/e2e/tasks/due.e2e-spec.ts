@@ -66,7 +66,15 @@ describeWithSeededApp('Task due and transitions metadata (e2e)', (getContext) =>
       .set(authHeader(token))
       .expect(200);
 
-    expect(response.body.targets).toEqual([TaskStatus.INTERNAL_REVIEW]);
+    expect(response.body.from).toBe(TaskStatus.PRODUCTION);
+    expect(response.body.targets).toEqual([
+      expect.objectContaining({
+        to: TaskStatus.INTERNAL_REVIEW,
+        label: 'Send to internal review',
+        requiresComment: false,
+        buttonVariant: 'secondary',
+      }),
+    ]);
   });
 
   it('GET /tasks/:id/events returns status history after transition', async () => {

@@ -1,5 +1,8 @@
 import request from 'supertest';
-import { WorkspaceRole } from '../../src/generated/prisma/client.js';
+import {
+  ProjectStatus,
+  WorkspaceRole,
+} from '../../src/generated/prisma/client.js';
 import { authHeader, loginAs } from '../helpers/auth.js';
 import { describeWithSeededApp } from '../helpers/seeded-app.js';
 import { SEED_IDS, SEED_PASSWORD } from '../helpers/seed-e2e.js';
@@ -256,5 +259,35 @@ describeWithSeededApp('Projects (e2e)', (getContext) => {
       .get(`/projects/${created.body.id}`)
       .set(authHeader(managerToken))
       .expect(404);
+  });
+
+  it('PATCH /projects/:id updates project status for manager', async () => {
+    const { app } = getContext();
+    const token = await loginAs(app, 'manager@test.local', SEED_PASSWORD);
+
+    const response = await request(app.getHttpServer())
+      .patch(`/projects/${SEED_IDS.project}`)
+      .set(authHeader(token))
+      .send({ status: ProjectStatus.PAUSED })
+      .expect(200);
+
+    expect(response.body.status).toBe(ProjectStatus.PAUSED);
+  });
+
+  it('POST /projects/:id/tasks rejects task creation on completed project', async () => {
+    const { app } = getContext();
+    const token = await loginAs(app, 'manager@test.local', SEED_PASSWORD);
+
+    await request(app.getHttpServer())
+      .patch(`/projects/${SEED_IDS.project}`)
+      .set(authHeader(token))
+      .send({ status: ProjectStatus.COMPLETED })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/projects/${SEED_IDS.project}/tasks`)
+      .set(authHeader(token))
+      .send({ title: 'Should fail' })
+      .expect(400);
   });
 });

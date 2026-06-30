@@ -106,6 +106,14 @@ describeWithSeededApp('Workspaces (e2e)', (getContext) => {
 
     expect(updated.body.name).toBe('Renamed workspace');
 
+    const slugUpdated = await request(app.getHttpServer())
+      .patch(`/workspaces/${SEED_IDS.workspace}`)
+      .set(authHeader(adminToken))
+      .send({ slug: 'demo-renamed' })
+      .expect(200);
+
+    expect(slugUpdated.body.slug).toBe('demo-renamed');
+
     await request(app.getHttpServer())
       .patch(`/workspaces/${SEED_IDS.workspace}`)
       .set(authHeader(managerToken))
