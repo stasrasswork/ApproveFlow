@@ -4,7 +4,6 @@ import type {
   TextareaHTMLAttributes,
 } from 'react';
 
-/** Shared dimensions for inputs, buttons, and badges in one row */
 export const controlSizeClass =
   'h-11 rounded-xl text-sm shadow-sm outline-none transition';
 

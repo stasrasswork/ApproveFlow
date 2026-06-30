@@ -1,5 +1,7 @@
 export type WorkspaceRole = 'ADMIN' | 'MANAGER' | 'MEMBER' | 'CLIENT_VIEW';
 
+export type ProjectStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED';
+
 export type TaskStatus =
   | 'BRIEF'
   | 'PRODUCTION'
@@ -60,6 +62,7 @@ export type Project = {
   workspaceId: string;
   name: string;
   description: string | null;
+  status: ProjectStatus;
   createdAt: string;
   updatedAt: string;
 };
@@ -117,7 +120,7 @@ export type ProjectMember = {
   user: UserBrief;
 };
 
-export type Task = {
+type TaskBrief = {
   id: string;
   projectId: string;
   title: string;
@@ -131,7 +134,7 @@ export type Task = {
   updatedAt: string;
 };
 
-export type TaskView = Task & {
+export type TaskView = TaskBrief & {
   assignee: UserBrief | null;
   creator: UserBrief;
 };
@@ -171,5 +174,11 @@ export type Comment = {
 };
 
 export type AllowedTransitions = {
-  targets: TaskStatus[];
+  from: TaskStatus;
+  targets: Array<{
+    to: TaskStatus;
+    label: string;
+    requiresComment: boolean;
+    buttonVariant: 'primary' | 'danger' | 'secondary';
+  }>;
 };

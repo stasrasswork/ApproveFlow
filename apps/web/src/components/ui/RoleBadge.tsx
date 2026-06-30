@@ -1,4 +1,5 @@
 import type { UserBrief, WorkspaceRole } from '../../api/types';
+import { userDisplayName } from '../../lib/format';
 import { ROLE_LABELS } from '../../lib/roles';
 
 const ROLE_BADGE_COLORS: Record<WorkspaceRole, string> = {
@@ -30,7 +31,7 @@ export function AuthorLine({
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
       <span className="text-sm font-semibold text-slate-900">
-        {author.name ?? author.email}
+        {userDisplayName(author)}
       </span>
       <RoleBadge role={role} />
       <span className="text-xs text-slate-400">{timestamp}</span>

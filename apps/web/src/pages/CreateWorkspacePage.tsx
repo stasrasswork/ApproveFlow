@@ -2,7 +2,7 @@ import { type FormEvent, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { workspacesApi } from '../api/endpoints';
-import { ApiError } from '../api/client';
+import { getApiErrorMessage } from '../lib/api-error';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -22,7 +22,7 @@ export function CreateWorkspacePage() {
       navigate(`/w/${workspace.id}/projects`, { replace: true });
     },
     onError: (err) => {
-      setError(err instanceof ApiError ? err.message : 'Failed to create workspace');
+      setError(getApiErrorMessage(err, 'Failed to create workspace'));
     },
   });
 

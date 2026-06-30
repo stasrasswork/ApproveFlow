@@ -4,7 +4,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { fieldClass } from './Form';
@@ -13,7 +12,6 @@ export type DropdownOption = {
   value: string;
   label: string;
   description?: string;
-  icon?: ReactNode;
 };
 
 type DropdownProps = {
@@ -27,7 +25,6 @@ type DropdownProps = {
   align?: 'left' | 'right';
   size?: 'sm' | 'md';
   fullWidth?: boolean;
-  /** Show only the label in the trigger (keeps inputs aligned in forms). */
   compactTrigger?: boolean;
 };
 

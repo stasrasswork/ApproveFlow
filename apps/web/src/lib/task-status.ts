@@ -1,4 +1,4 @@
-import type { TaskStatus, WorkspaceRole } from '../api/types';
+import type { ProjectStatus, TaskStatus } from '../api/types';
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
   BRIEF: 'Brief',
@@ -37,51 +37,13 @@ export function getBlockingHint(status: TaskStatus): string | null {
   }
 }
 
-const TRANSITION_LABELS: Partial<
-  Record<TaskStatus, Partial<Record<TaskStatus, string>>>
-> = {
-  BRIEF: { PRODUCTION: 'Start work' },
-  PRODUCTION: { INTERNAL_REVIEW: 'Send to internal review' },
-  INTERNAL_REVIEW: {
-    PRODUCTION: 'Request revisions',
-    CLIENT_HANDOFF: 'Send to client',
-  },
-  CLIENT_HANDOFF: {
-    INTERNAL_REVIEW: 'Recall',
-    CLIENT_APPROVAL: 'Accept for review',
-  },
-  CLIENT_APPROVAL: {
-    PENDING_CLOSURE: 'Approve',
-    PRODUCTION: 'Request changes',
-  },
-  PENDING_CLOSURE: { DONE: 'Confirm closure' },
-};
+export type TransitionButtonVariant = 'primary' | 'danger' | 'secondary';
 
-export function getTransitionLabel(from: TaskStatus, to: TaskStatus): string {
-  return TRANSITION_LABELS[from]?.[to] ?? `${STATUS_LABELS[from]} → ${STATUS_LABELS[to]}`;
-}
-
-export function transitionNeedsComment(
-  from: TaskStatus,
-  to: TaskStatus,
-  role: WorkspaceRole,
-): boolean {
-  return (
-    role === 'CLIENT_VIEW' &&
-    from === 'CLIENT_APPROVAL' &&
-    to === 'PRODUCTION'
-  );
-}
-
-export function transitionButtonVariant(
-  from: TaskStatus,
-  to: TaskStatus,
-): 'primary' | 'danger' | 'secondary' {
-  if (from === 'CLIENT_APPROVAL' && to === 'PRODUCTION') {
-    return 'danger';
-  }
-  if (to === 'DONE' || to === 'PENDING_CLOSURE') {
-    return 'primary';
-  }
-  return 'secondary';
-}
+export const PROJECT_STATUS_OPTIONS: {
+  value: ProjectStatus;
+  label: string;
+}[] = [
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'PAUSED', label: 'Paused' },
+  { value: 'COMPLETED', label: 'Completed' },
+];

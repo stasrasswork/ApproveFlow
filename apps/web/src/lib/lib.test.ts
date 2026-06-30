@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import {
+  assigneeNeedsProjectAccess,
+  filterAssignableMembers,
+} from './members';
+import { isValidSlug, slugify } from './slug';
 import { getEventTypeLabel } from './task-events';
-import { transitionNeedsComment } from './task-status';
-import { canChangeTaskStatus, isAgencyRole } from './roles';
+import { isAgencyRole } from './roles';
 
 describe('getEventTypeLabel', () => {
   it('labels handoff acknowledgement', () => {
@@ -24,14 +28,21 @@ describe('getEventTypeLabel', () => {
   });
 });
 
-describe('transitionNeedsComment', () => {
-  it('requires comment only for client request changes', () => {
-    expect(
-      transitionNeedsComment('CLIENT_APPROVAL', 'PRODUCTION', 'CLIENT_VIEW'),
-    ).toBe(true);
-    expect(
-      transitionNeedsComment('INTERNAL_REVIEW', 'PRODUCTION', 'MANAGER'),
-    ).toBe(false);
+describe('members', () => {
+  it('filters assignable workspace members', () => {
+    const members = [
+      { id: '1', userId: 'a', role: 'ADMIN' as const, workspaceId: 'w', createdAt: '', user: { id: 'a', email: 'a@t', name: null } },
+      { id: '2', userId: 'b', role: 'CLIENT_VIEW' as const, workspaceId: 'w', createdAt: '', user: { id: 'b', email: 'b@t', name: null } },
+    ];
+    expect(filterAssignableMembers(members)).toHaveLength(1);
+    expect(filterAssignableMembers(members)[0].userId).toBe('a');
+  });
+
+  it('detects assignee missing from project', () => {
+    const memberIds = new Set(['u1']);
+    expect(assigneeNeedsProjectAccess('u2', memberIds)).toBe(true);
+    expect(assigneeNeedsProjectAccess('u1', memberIds)).toBe(false);
+    expect(assigneeNeedsProjectAccess(null, memberIds)).toBe(false);
   });
 });
 
@@ -41,10 +52,15 @@ describe('roles', () => {
     expect(isAgencyRole('MANAGER')).toBe(true);
     expect(isAgencyRole('MEMBER')).toBe(false);
   });
+});
 
-  it('allows status changes for non-members', () => {
-    expect(canChangeTaskStatus('MEMBER')).toBe(false);
-    expect(canChangeTaskStatus('MANAGER')).toBe(true);
-    expect(canChangeTaskStatus('CLIENT_VIEW')).toBe(true);
+describe('slug', () => {
+  it('slugifies workspace names', () => {
+    expect(slugify('Acme Creative Agency')).toBe('acme-creative-agency');
+  });
+
+  it('validates slug format', () => {
+    expect(isValidSlug('my-agency')).toBe(true);
+    expect(isValidSlug('My Agency')).toBe(false);
   });
 });

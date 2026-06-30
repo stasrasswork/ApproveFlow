@@ -1,8 +1,8 @@
 import { type FormEvent, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { authApi } from '../api/endpoints';
-import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { getApiErrorMessage } from '../lib/api-error';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Input, Field, FormStack, FormActions } from '../components/ui/Form';
@@ -29,9 +29,7 @@ export function RegisterPage() {
       const result = await authApi.register(email, password, name || undefined);
       setMessage(result.message);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : 'Registration failed',
-      );
+      setError(getApiErrorMessage(err, 'Registration failed'));
     } finally {
       setSubmitting(false);
     }
