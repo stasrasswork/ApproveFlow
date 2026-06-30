@@ -1,16 +1,17 @@
 import { type FormEvent, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { getApiErrorMessage } from '../lib/api-error';
 import { Button } from '../components/ui/Button';
+import { ErrorAlert } from '../components/ui/ErrorAlert';
 import { Input, Field, FormStack, FormActions } from '../components/ui/Form';
 
 export function LoginPage() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState('manager@test.local');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -28,7 +29,7 @@ export function LoginPage() {
         (location.state as { from?: string } | null)?.from ?? '/';
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Sign in failed');
+      setError(getApiErrorMessage(err, 'Sign in failed'));
     } finally {
       setSubmitting(false);
     }
@@ -97,9 +98,7 @@ export function LoginPage() {
               </Field>
 
               {error ? (
-                <p className="rounded-xl bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700 ring-1 ring-rose-100">
-                  {error}
-                </p>
+                <ErrorAlert message={error} />
               ) : null}
 
               <FormActions>
