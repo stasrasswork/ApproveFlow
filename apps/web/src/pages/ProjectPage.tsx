@@ -303,6 +303,23 @@ export function ProjectPage() {
                   fullWidth
                 />
               </Field>
+              <FormActions>
+                <Button
+                  type="button"
+                  onClick={handleSaveProject}
+                  disabled={updateProjectMutation.isPending}
+                >
+                  {updateProjectMutation.isPending ? 'Saving…' : 'Save changes'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={cancelEditingProject}
+                  disabled={updateProjectMutation.isPending}
+                >
+                  Cancel
+                </Button>
+              </FormActions>
             </div>
           ) : (
             <>
@@ -323,25 +340,6 @@ export function ProjectPage() {
           )}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {canManage && isEditingProject ? (
-            <>
-              <Button
-                type="button"
-                onClick={handleSaveProject}
-                disabled={updateProjectMutation.isPending}
-              >
-                {updateProjectMutation.isPending ? 'Saving…' : 'Save changes'}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={cancelEditingProject}
-                disabled={updateProjectMutation.isPending}
-              >
-                Cancel
-              </Button>
-            </>
-          ) : null}
           {canManage && !isEditingProject ? (
             <>
               <Button type="button" variant="secondary" onClick={startEditingProject}>

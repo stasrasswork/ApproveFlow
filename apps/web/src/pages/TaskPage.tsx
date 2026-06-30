@@ -6,9 +6,14 @@ import type { AllowedTransitions, TaskStatus } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import {
+  DueDateDisplay,
+  DueDatePickerFields,
+  DueDatePickerPanel,
+} from '../components/ui/DueDatePicker';
 import { AuthorLine } from '../components/ui/RoleBadge';
 import { Dropdown } from '../components/ui/Dropdown';
-import { Input, TitleInput, Textarea, Field, FormStack, FormActions, InlineFormRow } from '../components/ui/Form';
+import { TitleInput, Textarea, Field, FormStack, FormActions, InlineFormRow } from '../components/ui/Form';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { getApiErrorMessage } from '../lib/api-error';
 import { LIVE_REFETCH_MS } from '../lib/constants';
@@ -47,6 +52,9 @@ export function TaskPage() {
   const [editAssigneeId, setEditAssigneeId] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
   const [editDueReason, setEditDueReason] = useState('');
+  const [showDueDateForm, setShowDueDateForm] = useState(false);
+  const [quickDueDate, setQuickDueDate] = useState('');
+  const [quickDueReason, setQuickDueReason] = useState('');
 
   const { data: task } = useQuery({
     queryKey: ['task', taskId],
@@ -119,6 +127,7 @@ export function TaskPage() {
       setPendingTransition(null);
       setCommentBody('');
       setTransitionError(null);
+      setShowDueDateForm(false);
       invalidateTask();
     },
     onError: (err) => {
@@ -142,6 +151,31 @@ export function TaskPage() {
     },
   });
 
+  const updateDueMutation = useMutation({
+    mutationFn: ({
+      dueDate,
+      reason,
+    }: {
+      dueDate: string | null;
+      reason?: string;
+    }) =>
+      tasksApi.updateDue(
+        taskId,
+        dueDate ? dateInputToIso(dueDate) : null,
+        reason,
+      ),
+    onSuccess: () => {
+      setShowDueDateForm(false);
+      setTransitionError(null);
+      invalidateTask();
+      queryClient.invalidateQueries({ queryKey: ['task-due-changes', taskId] });
+      queryClient.invalidateQueries({ queryKey: ['project-activity', projectId] });
+    },
+    onError: (err) => {
+      setTransitionError(getApiErrorMessage(err, 'Failed to update due date'));
+    },
+  });
+
   const saveEditMutation = useMutation({
     mutationFn: async () => {
       const title = editTitle.trim();
@@ -162,7 +196,10 @@ export function TaskPage() {
       });
 
       const currentDue = toDateInputValue(task!.dueAt);
-      if (editDueDate !== currentDue || editDueReason.trim()) {
+      if (
+        task!.status === 'BRIEF' &&
+        (editDueDate !== currentDue || editDueReason.trim())
+      ) {
         await tasksApi.updateDue(
           taskId,
           editDueDate ? dateInputToIso(editDueDate) : null,
@@ -193,6 +230,34 @@ export function TaskPage() {
   const blocking = getBlockingHint(task.status);
   const agency = role ? isAgencyRole(role) : false;
   const showTransitions = (transitions?.targets.length ?? 0) > 0;
+  const canEditDueDate = agency && task.status === 'BRIEF';
+  const canSetDueDate = canEditDueDate && !isEditing;
+  const showActionsCard = showTransitions || canSetDueDate;
+
+  function openDueDateForm() {
+    setQuickDueDate(toDateInputValue(task!.dueAt));
+    setQuickDueReason('');
+    setShowDueDateForm(true);
+    setTransitionError(null);
+  }
+
+  function cancelDueDateForm() {
+    setShowDueDateForm(false);
+    setQuickDueDate('');
+    setQuickDueReason('');
+  }
+
+  function handleQuickDueSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!quickDueDate) {
+      setTransitionError('Due date is required');
+      return;
+    }
+    updateDueMutation.mutate({
+      dueDate: quickDueDate,
+      reason: quickDueReason.trim() || undefined,
+    });
+  }
 
   function handleTransition(target: AllowedTransitions['targets'][number]) {
     if (!task) {
@@ -237,6 +302,7 @@ export function TaskPage() {
 
   function cancelEditing() {
     setIsEditing(false);
+    setShowDueDateForm(false);
   }
 
   const assigneeOptions = workspaceMemberDropdownOptions(
@@ -318,7 +384,7 @@ export function TaskPage() {
               )}
             </Card>
 
-          {showTransitions ? (
+          {showActionsCard ? (
             <Card title="Actions" accent="violet">
               {transitionError ? (
                 <p className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -326,17 +392,42 @@ export function TaskPage() {
                 </p>
               ) : null}
               <div className="flex flex-wrap gap-2">
-                {transitions!.targets.map((target) => (
+                {showTransitions
+                  ? transitions!.targets.map((target) => (
+                      <Button
+                        key={target.to}
+                        variant={target.buttonVariant}
+                        disabled={
+                          transitionMutation.isPending || updateDueMutation.isPending
+                        }
+                        onClick={() => handleTransition(target)}
+                      >
+                        {target.label}
+                      </Button>
+                    ))
+                  : null}
+                {canSetDueDate && !showDueDateForm ? (
                   <Button
-                    key={target.to}
-                    variant={target.buttonVariant}
-                    disabled={transitionMutation.isPending}
-                    onClick={() => handleTransition(target)}
+                    type="button"
+                    variant="secondary"
+                    disabled={transitionMutation.isPending || updateDueMutation.isPending}
+                    onClick={openDueDateForm}
                   >
-                    {target.label}
+                    {task.dueAt ? 'Change due date' : 'Set due date'}
                   </Button>
-                ))}
+                ) : null}
               </div>
+              {showDueDateForm ? (
+                <DueDatePickerPanel
+                  dueDate={quickDueDate}
+                  onDueDateChange={setQuickDueDate}
+                  reason={quickDueReason}
+                  onReasonChange={setQuickDueReason}
+                  onSubmit={handleQuickDueSubmit}
+                  onCancel={cancelDueDateForm}
+                  isPending={updateDueMutation.isPending}
+                />
+              ) : null}
             </Card>
           ) : null}
 
@@ -451,29 +542,19 @@ export function TaskPage() {
                 </p>
               </Field>
               <Field label="Due date">
-                {isEditing && agency ? (
-                  <Input
-                    id="due"
-                    type="date"
-                    value={editDueDate}
-                    onChange={(e) => setEditDueDate(e.target.value)}
+                {isEditing && agency && canEditDueDate ? (
+                  <DueDatePickerFields
+                    dueDate={editDueDate}
+                    onDueDateChange={setEditDueDate}
+                    reason={editDueReason}
+                    onReasonChange={setEditDueReason}
+                    dateId="due"
+                    reasonId="due-reason"
                   />
                 ) : (
-                  <p className="text-sm font-medium text-slate-800">
-                    {formatDate(task.dueAt)}
-                  </p>
+                  <DueDateDisplay dueAt={task.dueAt} />
                 )}
               </Field>
-              {isEditing && agency ? (
-                <Field label="Due date reason" htmlFor="due-reason">
-                  <Input
-                    id="due-reason"
-                    value={editDueReason}
-                    onChange={(e) => setEditDueReason(e.target.value)}
-                    placeholder="Optional"
-                  />
-                </Field>
-              ) : null}
             </FormStack>
           </Card>
 
