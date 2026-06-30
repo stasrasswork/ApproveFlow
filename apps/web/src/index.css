@@ -1,0 +1,77 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Syne', ui-sans-serif, system-ui, sans-serif;
+  --color-brand-50: #f0f4ff;
+  --color-brand-100: #dce4ff;
+  --color-brand-200: #b8c9ff;
+  --color-brand-400: #6b8cff;
+  --color-brand-500: #4f6ef7;
+  --color-brand-600: #3b52eb;
+  --color-brand-700: #2f41d4;
+  --color-brand-900: #1a2560;
+  --color-accent-400: #fb7185;
+  --color-accent-500: #f43f5e;
+  --color-surface: #ffffff;
+  --color-muted: #64748b;
+}
+
+body {
+  @apply min-h-screen text-slate-900 antialiased;
+  margin: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(79, 110, 247, 0.18), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(244, 63, 94, 0.08), transparent),
+    radial-gradient(ellipse 50% 30% at 0% 100%, rgba(59, 82, 235, 0.1), transparent),
+    #f4f6fb;
+  background-attachment: fixed;
+}
+
+#root {
+  @apply min-h-screen;
+}
+
+.glass-panel {
+  @apply rounded-2xl border border-slate-200/70 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.05)];
+}
+
+.glass-header {
+  @apply border-b border-white/50 bg-white/70 shadow-[0_1px_0_rgba(255,255,255,0.8)_inset] backdrop-blur-xl;
+}
+
+.text-gradient {
+  @apply bg-gradient-to-r from-brand-700 via-brand-500 to-accent-500 bg-clip-text text-transparent;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.4s ease-out both;
+}
+
+@layer base {
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+  }
+
+  input[type='text'],
+  input[type='email'],
+  input[type='password'],
+  input[type='date'],
+  input:not([type]) {
+    appearance: none;
+  }
+}

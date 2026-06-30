@@ -1,0 +1,135 @@
+import { type FormEvent, useState } from 'react';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { ApiError } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
+import { Button } from '../components/ui/Button';
+import { Input, Field, FormStack, FormActions } from '../components/ui/Form';
+
+export function LoginPage() {
+  const { login, user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [email, setEmail] = useState('manager@test.local');
+  const [password, setPassword] = useState('password123');
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      await login(email, password);
+      const from =
+        (location.state as { from?: string } | null)?.from ?? '/';
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Sign in failed');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen">
+      <aside className="relative hidden w-1/2 overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-12">
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-900 via-brand-700 to-brand-600" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(244,63,94,0.35),transparent_50%)]" />
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImEiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggIGQ9Ik0wIDYwVjBoNjB2NjB6IiBmaWxsPSJub25lIi8+PHBhdGggZD0iTTMwIDMwSDMwLjVWMzAuNUgzMFYzMHoiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IGZpbGw9InVybCgjYSkiLz48L3N2Zz4=')] opacity-40" />
+
+        <div className="relative">
+          <span className="font-display text-3xl font-bold text-white">
+            ApproveFlow
+          </span>
+        </div>
+
+        <div className="relative space-y-4">
+          <h1 className="font-display text-4xl font-bold leading-tight text-white">
+            Client approvals,
+            <br />
+            without the chaos.
+          </h1>
+          <p className="max-w-md text-lg text-brand-100">
+            Track every handoff, comment, and sign-off in one workspace — from
+            brief to done.
+          </p>
+        </div>
+
+        <p className="relative text-sm text-brand-200">
+          brief → production → review → client approval → done
+        </p>
+      </aside>
+
+      <div className="flex flex-1 items-center justify-center px-4 py-12">
+        <div className="glass-panel w-full max-w-md p-8">
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-slate-900">Welcome back</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Sign in to your workspace
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <FormStack>
+              <Field label="Email" htmlFor="email">
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </Field>
+              <Field label="Password" htmlFor="password">
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </Field>
+
+              {error ? (
+                <p className="rounded-xl bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700 ring-1 ring-rose-100">
+                  {error}
+                </p>
+              ) : null}
+
+              <FormActions>
+                <Button type="submit" className="w-full" disabled={submitting}>
+                  {submitting ? 'Signing in…' : 'Sign in'}
+                </Button>
+              </FormActions>
+            </FormStack>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-slate-500">
+            No account?{' '}
+            <Link
+              to="/register"
+              className="font-semibold text-brand-600 hover:text-brand-700"
+            >
+              Create one
+            </Link>
+          </p>
+
+          <div className="mt-6 rounded-xl bg-brand-50/80 p-3 ring-1 ring-brand-100">
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">
+              Demo credentials
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              manager@test.local / password123
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
