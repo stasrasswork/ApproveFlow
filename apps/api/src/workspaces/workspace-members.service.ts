@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -11,9 +10,11 @@ import {
 } from '../generated/prisma/client.js';
 import {
   assertAgencyRole,
+  assertAdminRole,
   assertWorkspaceExists,
   getWorkspaceRole,
-  isUniqueConstraintError,
+  normalizeEmail,
+  rethrowUniqueAsConflict,
   userBriefSelect,
   type UserBrief,
 } from '../common/index.js';
@@ -65,7 +66,7 @@ export class WorkspaceMembersService {
       throw new ForbiddenException('Only admin can assign admin role');
     }
 
-    const email = dto.email.toLowerCase();
+    const email = normalizeEmail(dto.email);
     const targetUser = await this.prisma.user.findUnique({
       where: { email },
       select: { id: true },
@@ -93,10 +94,10 @@ export class WorkspaceMembersService {
         },
       });
     } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        throw new ConflictException('User is already a member of this workspace');
-      }
-      throw error;
+      rethrowUniqueAsConflict(
+        error,
+        'User is already a member of this workspace',
+      );
     }
   }
 
@@ -107,12 +108,12 @@ export class WorkspaceMembersService {
     dto: UpdateWorkspaceMemberDto,
   ): Promise<WorkspaceMemberWithUser> {
     await assertWorkspaceExists(this.prisma, workspaceId);
-
-    const actorRole = await getWorkspaceRole(this.prisma, workspaceId, userId);
-
-    if (actorRole !== WorkspaceRole.ADMIN) {
-      throw new ForbiddenException('Only admin can change member roles');
-    }
+    await assertAdminRole(
+      this.prisma,
+      workspaceId,
+      userId,
+      'Only admin can change member roles',
+    );
 
     const membership = await this.findMembership(workspaceId, memberUserId);
 
@@ -138,12 +139,12 @@ export class WorkspaceMembersService {
     memberUserId: string,
   ): Promise<void> {
     await assertWorkspaceExists(this.prisma, workspaceId);
-
-    const actorRole = await getWorkspaceRole(this.prisma, workspaceId, userId);
-
-    if (actorRole !== WorkspaceRole.ADMIN) {
-      throw new ForbiddenException('Only admin can remove workspace members');
-    }
+    await assertAdminRole(
+      this.prisma,
+      workspaceId,
+      userId,
+      'Only admin can remove workspace members',
+    );
 
     const membership = await this.findMembership(workspaceId, memberUserId);
 

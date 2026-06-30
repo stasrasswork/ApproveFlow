@@ -49,3 +49,18 @@ export async function assertAgencyRole(
 
   return role;
 }
+
+export async function assertAdminRole(
+  prisma: PrismaService,
+  workspaceId: string,
+  userId: string,
+  message = 'Only admin can perform this action',
+): Promise<WorkspaceRole> {
+  const role = await getWorkspaceRole(prisma, workspaceId, userId);
+
+  if (role !== WorkspaceRole.ADMIN) {
+    throw new ForbiddenException(message);
+  }
+
+  return role;
+}

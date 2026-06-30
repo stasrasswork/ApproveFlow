@@ -1,13 +1,12 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { ProjectMember } from '../generated/prisma/client.js';
 import {
   assertAgencyRole,
-  isUniqueConstraintError,
+  rethrowUniqueAsConflict,
   loadProjectAndAssertAccess,
   userBriefSelect,
   type UserBrief,
@@ -87,10 +86,10 @@ export class ProjectMembersService {
         include: { user: { select: userBriefSelect } },
       });
     } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        throw new ConflictException('User is already a member of this project');
-      }
-      throw error;
+      rethrowUniqueAsConflict(
+        error,
+        'User is already a member of this project',
+      );
     }
   }
 

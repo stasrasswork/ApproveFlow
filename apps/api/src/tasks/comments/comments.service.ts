@@ -5,6 +5,7 @@ import {
 } from '../../generated/prisma/client.js';
 import {
   userBriefSelect,
+  loadWorkspaceRoleMap,
   type UserBrief,
 } from '../../common/index.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -74,12 +75,10 @@ export class CommentsService {
     }
 
     const authorIds = [...new Set(comments.map((comment) => comment.authorId))];
-    const memberships = await this.prisma.workspaceMember.findMany({
-      where: { workspaceId, userId: { in: authorIds } },
-      select: { userId: true, role: true },
-    });
-    const roleByUserId = new Map(
-      memberships.map((membership) => [membership.userId, membership.role]),
+    const roleByUserId = await loadWorkspaceRoleMap(
+      this.prisma,
+      workspaceId,
+      authorIds,
     );
 
     return comments.map((comment) => ({

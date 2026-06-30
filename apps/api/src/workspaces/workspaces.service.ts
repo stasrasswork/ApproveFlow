@@ -1,6 +1,4 @@
 import {
-  ConflictException,
-  ForbiddenException,
   Injectable,
 } from '@nestjs/common';
 import {
@@ -8,9 +6,10 @@ import {
   WorkspaceRole,
 } from '../generated/prisma/client.js';
 import {
+  assertAdminRole,
   assertWorkspaceExists,
   getWorkspaceRole,
-  isUniqueConstraintError,
+  rethrowUniqueAsConflict,
   slugify,
 } from '../common/index.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -83,10 +82,7 @@ export class WorkspacesService {
         return workspace;
       });
     } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        throw new ConflictException('Workspace slug already exists');
-      }
-      throw error;
+      rethrowUniqueAsConflict(error, 'Workspace slug already exists');
     }
   }
 
@@ -96,11 +92,12 @@ export class WorkspacesService {
     dto: UpdateWorkspaceDto,
   ): Promise<Workspace> {
     await assertWorkspaceExists(this.prisma, workspaceId);
-    const role = await getWorkspaceRole(this.prisma, workspaceId, userId);
-
-    if (role !== WorkspaceRole.ADMIN) {
-      throw new ForbiddenException('Only admin can update workspace');
-    }
+    await assertAdminRole(
+      this.prisma,
+      workspaceId,
+      userId,
+      'Only admin can update workspace',
+    );
 
     try {
       return await this.prisma.workspace.update({
@@ -108,10 +105,7 @@ export class WorkspacesService {
         data: dto,
       });
     } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        throw new ConflictException('Workspace slug already exists');
-      }
-      throw error;
+      rethrowUniqueAsConflict(error, 'Workspace slug already exists');
     }
   }
 
@@ -120,11 +114,12 @@ export class WorkspacesService {
     userId: string,
   ): Promise<void> {
     await assertWorkspaceExists(this.prisma, workspaceId);
-    const role = await getWorkspaceRole(this.prisma, workspaceId, userId);
-
-    if (role !== WorkspaceRole.ADMIN) {
-      throw new ForbiddenException('Only admin can delete workspace');
-    }
+    await assertAdminRole(
+      this.prisma,
+      workspaceId,
+      userId,
+      'Only admin can delete workspace',
+    );
 
     await this.prisma.workspace.delete({
       where: { id: workspaceId },

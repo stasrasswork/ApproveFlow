@@ -1,4 +1,3 @@
-/** Lowercase URL-safe slug: letters, numbers, hyphens. */
 export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const SLUG_VALIDATION_MESSAGE =

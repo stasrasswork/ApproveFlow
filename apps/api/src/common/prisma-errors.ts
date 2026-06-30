@@ -1,3 +1,5 @@
+import { ConflictException } from '@nestjs/common';
+
 export function isUniqueConstraintError(error: unknown): boolean {
   return (
     typeof error === 'object' &&
@@ -5,4 +7,15 @@ export function isUniqueConstraintError(error: unknown): boolean {
     'code' in error &&
     (error as { code: string }).code === 'P2002'
   );
+}
+
+export function rethrowUniqueAsConflict(
+  error: unknown,
+  message: string,
+): never {
+  if (isUniqueConstraintError(error)) {
+    throw new ConflictException(message);
+  }
+
+  throw error;
 }

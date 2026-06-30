@@ -6,7 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { hash, verify } from 'argon2';
 import { WorkspaceRole } from '../generated/prisma/client.js';
-import { userBriefSelect } from '../common/index.js';
+import { userBriefSelect, normalizeEmail } from '../common/index.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LoginDto, RefreshDto, RegisterDto } from './dto/index.js';
 
@@ -83,7 +83,7 @@ export class AuthService {
 
   async login(loginDto: LoginDto): Promise<AuthTokens> {
     const user = await this.prisma.user.findUnique({
-      where: { email: loginDto.email.toLowerCase() },
+      where: { email: normalizeEmail(loginDto.email) },
     });
 
     if (!user) {
@@ -102,7 +102,7 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto): Promise<RegisterResult> {
-    const email = registerDto.email.toLowerCase();
+    const email = normalizeEmail(registerDto.email);
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });

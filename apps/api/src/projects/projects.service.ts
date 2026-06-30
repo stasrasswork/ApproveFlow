@@ -1,6 +1,4 @@
-import {
-  Injectable,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   ClientApprovalType,
   Project,
@@ -10,10 +8,13 @@ import {
 } from '../generated/prisma/client.js';
 import {
   assertAgencyRole,
+  assertProjectAccess,
   assertWorkspaceExists,
+  buildTaskListWhere,
   getWorkspaceRole,
   isAgencyRole,
   loadProjectAndAssertAccess,
+  loadWorkspaceRoleMap,
   userBriefSelect,
   type UserBrief,
 } from '../common/index.js';
@@ -115,10 +116,16 @@ export class ProjectsService {
   }
 
   async findOne(projectId: string, userId: string): Promise<Project> {
-    await loadProjectAndAssertAccess(this.prisma, projectId, userId);
-    return this.prisma.project.findUniqueOrThrow({
+    const project = await this.prisma.project.findUnique({
       where: { id: projectId },
     });
+
+    if (!project) {
+      throw new NotFoundException(`Project ${projectId} not found`);
+    }
+
+    await assertProjectAccess(this.prisma, project, userId);
+    return project;
   }
 
   async getStats(projectId: string, userId: string): Promise<ProjectStats> {
@@ -158,15 +165,7 @@ export class ProjectsService {
       userId,
     );
     const taskWhere = await this.buildTaskScopeWhere(projectId, userId);
-
-    const roleByUserId = new Map(
-      (
-        await this.prisma.workspaceMember.findMany({
-          where: { workspaceId },
-          select: { userId: true, role: true },
-        })
-      ).map((membership) => [membership.userId, membership.role]),
-    );
+    const roleByUserId = await loadWorkspaceRoleMap(this.prisma, workspaceId);
 
     const [events, comments, dueChanges] = await Promise.all([
       this.prisma.taskEvent.findMany({
@@ -281,17 +280,13 @@ export class ProjectsService {
   private async buildTaskScopeWhere(
     projectId: string,
     userId: string,
-  ): Promise<{ projectId: string; assigneeId?: string }> {
+  ) {
     const { role } = await loadProjectAndAssertAccess(
       this.prisma,
       projectId,
       userId,
     );
 
-    if (role === WorkspaceRole.MEMBER) {
-      return { projectId, assigneeId: userId };
-    }
-
-    return { projectId };
+    return buildTaskListWhere(projectId, role, userId);
   }
 }
