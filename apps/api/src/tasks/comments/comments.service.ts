@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { Comment } from '../../generated/prisma/client.js';
+import {
+  Comment,
+  WorkspaceRole,
+} from '../../generated/prisma/client.js';
 import {
   userBriefSelect,
   type UserBrief,
@@ -10,6 +13,7 @@ import { TasksService } from '../tasks.service.js';
 
 export type CommentView = Comment & {
   author: UserBrief;
+  authorRole: WorkspaceRole;
 };
 
 @Injectable()
@@ -22,11 +26,14 @@ export class CommentsService {
   async findByTask(taskId: string, userId: string): Promise<CommentView[]> {
     await this.tasksService.assertCanAccessTask(taskId, userId);
 
-    return this.prisma.comment.findMany({
+    const workspaceId = await this.getTaskWorkspaceId(taskId);
+    const comments = await this.prisma.comment.findMany({
       where: { taskId },
       include: { author: { select: userBriefSelect } },
       orderBy: { createdAt: 'asc' },
     });
+
+    return this.attachAuthorRoles(comments, workspaceId);
   }
 
   async create(
@@ -36,7 +43,8 @@ export class CommentsService {
   ): Promise<CommentView> {
     await this.tasksService.assertCanAccessTask(taskId, userId);
 
-    return this.prisma.comment.create({
+    const workspaceId = await this.getTaskWorkspaceId(taskId);
+    const comment = await this.prisma.comment.create({
       data: {
         taskId,
         authorId: userId,
@@ -44,5 +52,39 @@ export class CommentsService {
       },
       include: { author: { select: userBriefSelect } },
     });
+
+    const [view] = await this.attachAuthorRoles([comment], workspaceId);
+    return view;
+  }
+
+  private async getTaskWorkspaceId(taskId: string): Promise<string> {
+    const task = await this.prisma.task.findUniqueOrThrow({
+      where: { id: taskId },
+      select: { project: { select: { workspaceId: true } } },
+    });
+    return task.project.workspaceId;
+  }
+
+  private async attachAuthorRoles(
+    comments: (Comment & { author: UserBrief })[],
+    workspaceId: string,
+  ): Promise<CommentView[]> {
+    if (comments.length === 0) {
+      return [];
+    }
+
+    const authorIds = [...new Set(comments.map((comment) => comment.authorId))];
+    const memberships = await this.prisma.workspaceMember.findMany({
+      where: { workspaceId, userId: { in: authorIds } },
+      select: { userId: true, role: true },
+    });
+    const roleByUserId = new Map(
+      memberships.map((membership) => [membership.userId, membership.role]),
+    );
+
+    return comments.map((comment) => ({
+      ...comment,
+      authorRole: roleByUserId.get(comment.authorId) ?? WorkspaceRole.MEMBER,
+    }));
   }
 }

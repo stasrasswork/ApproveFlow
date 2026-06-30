@@ -35,6 +35,7 @@ export type ProjectActivityItem =
       taskId: string;
       taskTitle: string;
       actor: UserBrief;
+      actorRole: WorkspaceRole | null;
       eventType: TaskEventType;
       fromStatus: TaskStatus;
       toStatus: TaskStatus;
@@ -48,6 +49,7 @@ export type ProjectActivityItem =
       taskId: string;
       taskTitle: string;
       author: UserBrief;
+      authorRole: WorkspaceRole | null;
       body: string;
     }
   | {
@@ -57,6 +59,7 @@ export type ProjectActivityItem =
       taskId: string;
       taskTitle: string;
       changedBy: UserBrief;
+      changedByRole: WorkspaceRole | null;
       oldDueAt: Date | null;
       newDueAt: Date | null;
       reason: string | null;
@@ -149,7 +152,21 @@ export class ProjectsService {
     projectId: string,
     userId: string,
   ): Promise<ProjectActivityItem[]> {
+    const { workspaceId } = await loadProjectAndAssertAccess(
+      this.prisma,
+      projectId,
+      userId,
+    );
     const taskWhere = await this.buildTaskScopeWhere(projectId, userId);
+
+    const roleByUserId = new Map(
+      (
+        await this.prisma.workspaceMember.findMany({
+          where: { workspaceId },
+          select: { userId: true, role: true },
+        })
+      ).map((membership) => [membership.userId, membership.role]),
+    );
 
     const [events, comments, dueChanges] = await Promise.all([
       this.prisma.taskEvent.findMany({
@@ -183,6 +200,7 @@ export class ProjectsService {
         taskId: event.task.id,
         taskTitle: event.task.title,
         actor: event.actor,
+        actorRole: roleByUserId.get(event.actorId) ?? null,
         eventType: event.type,
         fromStatus: event.fromStatus,
         toStatus: event.toStatus,
@@ -196,6 +214,7 @@ export class ProjectsService {
         taskId: comment.task.id,
         taskTitle: comment.task.title,
         author: comment.author,
+        authorRole: roleByUserId.get(comment.authorId) ?? null,
         body: comment.body,
       })),
       ...dueChanges.map((change) => ({
@@ -205,6 +224,7 @@ export class ProjectsService {
         taskId: change.task.id,
         taskTitle: change.task.title,
         changedBy: change.changedBy,
+        changedByRole: roleByUserId.get(change.changedById) ?? null,
         oldDueAt: change.oldDueAt,
         newDueAt: change.newDueAt,
         reason: change.reason,

@@ -38,6 +38,7 @@ describeWithSeededApp('Comments (e2e)', (getContext) => {
       taskId: SEED_IDS.taskMemberDemo,
       authorId: SEED_IDS.member,
       body: 'Progress update',
+      authorRole: 'MEMBER',
       author: {
         id: SEED_IDS.member,
         email: 'member@test.local',
@@ -53,6 +54,7 @@ describeWithSeededApp('Comments (e2e)', (getContext) => {
     expect(listed.body).toHaveLength(1);
     expect(listed.body[0]).toMatchObject({
       body: 'Progress update',
+      authorRole: 'MEMBER',
       author: {
         id: SEED_IDS.member,
         email: 'member@test.local',
