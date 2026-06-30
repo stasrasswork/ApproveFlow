@@ -27,6 +27,12 @@ enum TaskStatus {
   DONE
 }
 
+enum ProjectStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
 enum TaskEventType {
   STATUS_CHANGED
   HANDOFF_ACK
@@ -86,12 +92,13 @@ model WorkspaceMember {
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  workspaceId String   @map("workspace_id")
+  id          String        @id @default(cuid())
+  workspaceId String        @map("workspace_id")
   name        String
   description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  status      ProjectStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
 
   workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   members   ProjectMember[]

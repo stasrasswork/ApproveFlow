@@ -1,7 +1,6 @@
 /**
  * Task status transition rules (state machine).
- * Source of truth for allowed edges: approveflow-spec.md → «Матрица переходов».
- * MEMBER cannot change status; only ADMIN, MANAGER, and CLIENT_VIEW where listed.
+ * Source of truth: approveflow-spec.md → «Матрица переходов».
  */
 
 import {
@@ -18,7 +17,6 @@ type TransitionRule = {
   allowedRoles: WorkspaceRole[];
 };
 
-/** Allowed (from → to) edges and who may trigger them. No other transitions exist in v1. */
 const TRANSITION_RULES: TransitionRule[] = [
   {
     from: TaskStatus.BRIEF,
@@ -67,7 +65,6 @@ const TRANSITION_RULES: TransitionRule[] = [
   },
 ];
 
-/** Role cannot perform this transition (unknown edge or wrong actor). Map to HTTP 403. */
 export class TransitionNotAllowedError extends Error {
   constructor(
     public readonly role: WorkspaceRole,
@@ -81,7 +78,6 @@ export class TransitionNotAllowedError extends Error {
   }
 }
 
-/** Transition is allowed but payload is invalid (e.g. missing required comment). Map to HTTP 400. */
 export class TransitionValidationError extends Error {
   constructor(message: string) {
     super(message);
@@ -90,18 +86,15 @@ export class TransitionValidationError extends Error {
 }
 
 export type TransitionPayload = {
-  /** Required when client requests changes (client_approval → production). */
   comment?: string;
 };
 
-/** Fields to persist on TaskEvent when applying a transition. */
 export type ResolvedTransition = {
   eventType: TaskEventType;
   approvalType: ClientApprovalType | null;
   requiresComment: boolean;
 };
 
-/** Whether (from → to) exists in the matrix, regardless of role. */
 export function isKnownTransition(from: TaskStatus, to: TaskStatus): boolean {
   return TRANSITION_RULES.some((r) => r.from === from && r.to === to);
 }
@@ -111,7 +104,6 @@ export function canTransition(
   from: TaskStatus,
   to: TaskStatus,
 ): boolean {
-  // Terminal state: no outgoing transitions in v1.
   if (from === TaskStatus.DONE) {
     return false;
   }
@@ -138,7 +130,6 @@ export function assertTransition(
   }
 }
 
-/** Spec: mandatory comment only for client «Request changes» (client_approval → production). */
 export function requiresComment(from: TaskStatus, to: TaskStatus): boolean {
   return (
     from === TaskStatus.CLIENT_APPROVAL &&
@@ -146,15 +137,10 @@ export function requiresComment(from: TaskStatus, to: TaskStatus): boolean {
   );
 }
 
-/**
- * Maps a validated edge to TaskEvent metadata.
- * Client-specific edges use HANDOFF_ACK / CLIENT_APPROVAL; all others are STATUS_CHANGED.
- */
 export function resolveTransition(
   from: TaskStatus,
   to: TaskStatus,
 ): ResolvedTransition {
-  // UI: «Принять к согласованию» — ClientHandoffAck
   if (from === TaskStatus.CLIENT_HANDOFF && to === TaskStatus.CLIENT_APPROVAL) {
     return {
       eventType: TaskEventType.HANDOFF_ACK,
@@ -163,7 +149,6 @@ export function resolveTransition(
     };
   }
 
-  // UI: «Согласовать» — approve, closure still needs agency confirmation (pending_closure)
   if (from === TaskStatus.CLIENT_APPROVAL && to === TaskStatus.PENDING_CLOSURE) {
     return {
       eventType: TaskEventType.CLIENT_APPROVAL,
@@ -172,7 +157,6 @@ export function resolveTransition(
     };
   }
 
-  // UI: «Запросить правки» — changes_requested + comment
   if (from === TaskStatus.CLIENT_APPROVAL && to === TaskStatus.PRODUCTION) {
     return {
       eventType: TaskEventType.CLIENT_APPROVAL,
@@ -188,10 +172,6 @@ export function resolveTransition(
   };
 }
 
-/**
- * Full gate for applying a transition: role matrix + payload rules.
- * Use from the task service before updating Task.status and creating TaskEvent.
- */
 export function assertTransitionWithPayload(
   role: WorkspaceRole,
   from: TaskStatus,
@@ -214,7 +194,6 @@ export function assertTransitionWithPayload(
   return resolved;
 }
 
-/** Target statuses for UI action buttons for the given role and current status. */
 export function getAllowedTargetStatuses(
   role: WorkspaceRole,
   from: TaskStatus,
@@ -226,4 +205,77 @@ export function getAllowedTargetStatuses(
   return TRANSITION_RULES.filter(
     (r) => r.from === from && r.allowedRoles.includes(role),
   ).map((r) => r.to);
+}
+
+export type TransitionButtonVariant = 'primary' | 'danger' | 'secondary';
+
+const STATUS_LABELS: Record<TaskStatus, string> = {
+  [TaskStatus.BRIEF]: 'Brief',
+  [TaskStatus.PRODUCTION]: 'In progress',
+  [TaskStatus.INTERNAL_REVIEW]: 'Internal review',
+  [TaskStatus.CLIENT_HANDOFF]: 'Awaiting client',
+  [TaskStatus.CLIENT_APPROVAL]: 'Client approval',
+  [TaskStatus.PENDING_CLOSURE]: 'Pending closure',
+  [TaskStatus.DONE]: 'Done',
+};
+
+const TRANSITION_LABELS: Partial<
+  Record<TaskStatus, Partial<Record<TaskStatus, string>>>
+> = {
+  [TaskStatus.BRIEF]: { [TaskStatus.PRODUCTION]: 'Start work' },
+  [TaskStatus.PRODUCTION]: {
+    [TaskStatus.INTERNAL_REVIEW]: 'Send to internal review',
+  },
+  [TaskStatus.INTERNAL_REVIEW]: {
+    [TaskStatus.PRODUCTION]: 'Request revisions',
+    [TaskStatus.CLIENT_HANDOFF]: 'Send to client',
+  },
+  [TaskStatus.CLIENT_HANDOFF]: {
+    [TaskStatus.INTERNAL_REVIEW]: 'Recall',
+    [TaskStatus.CLIENT_APPROVAL]: 'Accept for review',
+  },
+  [TaskStatus.CLIENT_APPROVAL]: {
+    [TaskStatus.PENDING_CLOSURE]: 'Approve',
+    [TaskStatus.PRODUCTION]: 'Request changes',
+  },
+  [TaskStatus.PENDING_CLOSURE]: { [TaskStatus.DONE]: 'Confirm closure' },
+};
+
+export function getTransitionLabel(from: TaskStatus, to: TaskStatus): string {
+  return (
+    TRANSITION_LABELS[from]?.[to] ??
+    `${STATUS_LABELS[from]} → ${STATUS_LABELS[to]}`
+  );
+}
+
+export function getTransitionButtonVariant(
+  from: TaskStatus,
+  to: TaskStatus,
+): TransitionButtonVariant {
+  if (from === TaskStatus.CLIENT_APPROVAL && to === TaskStatus.PRODUCTION) {
+    return 'danger';
+  }
+  if (to === TaskStatus.DONE || to === TaskStatus.PENDING_CLOSURE) {
+    return 'primary';
+  }
+  return 'secondary';
+}
+
+export type AllowedTransitionTarget = {
+  to: TaskStatus;
+  label: string;
+  requiresComment: boolean;
+  buttonVariant: TransitionButtonVariant;
+};
+
+export function buildAllowedTransitionTargets(
+  role: WorkspaceRole,
+  from: TaskStatus,
+): AllowedTransitionTarget[] {
+  return getAllowedTargetStatuses(role, from).map((to) => ({
+    to,
+    label: getTransitionLabel(from, to),
+    requiresComment: requiresComment(from, to),
+    buttonVariant: getTransitionButtonVariant(from, to),
+  }));
 }

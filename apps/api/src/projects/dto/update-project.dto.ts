@@ -1,9 +1,11 @@
 import {
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
 } from 'class-validator';
+import { ProjectStatus } from '../../generated/prisma/client.js';
 
 export class UpdateProjectDto {
   @IsOptional()
@@ -16,4 +18,8 @@ export class UpdateProjectDto {
   @IsString()
   @MaxLength(10_000)
   description?: string | null;
+
+  @IsOptional()
+  @IsEnum(ProjectStatus)
+  status?: ProjectStatus;
 }

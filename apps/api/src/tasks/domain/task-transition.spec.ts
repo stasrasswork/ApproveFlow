@@ -7,8 +7,10 @@ import {
 import {
   assertTransition,
   assertTransitionWithPayload,
+  buildAllowedTransitionTargets,
   canTransition,
   getAllowedTargetStatuses,
+  getTransitionLabel,
   isKnownTransition,
   requiresComment,
   resolveTransition,
@@ -196,6 +198,35 @@ describe('task-transition', () => {
       ).toEqual(
         [TaskStatus.PRODUCTION, TaskStatus.CLIENT_HANDOFF].sort(),
       );
+    });
+  });
+
+  describe('buildAllowedTransitionTargets', () => {
+    it('includes UI metadata for client request changes', () => {
+      expect(
+        buildAllowedTransitionTargets(
+          WorkspaceRole.CLIENT_VIEW,
+          TaskStatus.CLIENT_APPROVAL,
+        ),
+      ).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            to: TaskStatus.PRODUCTION,
+            label: 'Request changes',
+            requiresComment: true,
+            buttonVariant: 'danger',
+          }),
+        ]),
+      );
+    });
+
+    it('labels manager transitions', () => {
+      expect(
+        getTransitionLabel(
+          TaskStatus.INTERNAL_REVIEW,
+          TaskStatus.CLIENT_HANDOFF,
+        ),
+      ).toBe('Send to client');
     });
   });
 });

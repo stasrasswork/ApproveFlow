@@ -22,6 +22,7 @@ import {
   TaskEventView,
   TaskView,
   TasksService,
+  type AllowedTransitionTarget,
 } from './tasks.service.js';
 
 @UseGuards(JwtAuthGuard)
@@ -57,7 +58,7 @@ export class TasksController {
   getAllowedTransitions(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
-  ): Promise<{ targets: TaskStatus[] }> {
+  ): Promise<{ from: TaskStatus; targets: AllowedTransitionTarget[] }> {
     return this.tasksService.getAllowedTransitions(id, user.userId);
   }
 

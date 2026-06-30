@@ -14,9 +14,11 @@ import {
 } from '../generated/prisma/client.js';
 import {
   assertAssigneeInProject,
+  assertAgencyRole,
   assertProjectAccess,
+  assertProjectAllowsTaskChanges,
+  buildTaskListWhere,
   getWorkspaceRole,
-  isAgencyRole,
   loadProjectAndAssertAccess,
   userBriefSelect,
   type UserBrief,
@@ -30,9 +32,10 @@ import {
 } from './dto/index.js';
 import {
   assertTransitionWithPayload,
-  getAllowedTargetStatuses,
+  buildAllowedTransitionTargets,
   TransitionNotAllowedError,
   TransitionValidationError,
+  type AllowedTransitionTarget,
 } from './domain/task-transition.js';
 
 type TaskWithProject = Task & {
@@ -56,6 +59,8 @@ export type TaskEventView = TaskEvent & {
 export type TaskDueChangeView = TaskDueChange & {
   changedBy: UserBrief;
 };
+
+export type { AllowedTransitionTarget };
 
 @Injectable()
 export class TasksService {
@@ -91,10 +96,7 @@ export class TasksService {
       userId,
     );
 
-    const where =
-      role === WorkspaceRole.MEMBER
-        ? { projectId, assigneeId: userId }
-        : { projectId };
+    const where = buildTaskListWhere(projectId, role, userId);
 
     return this.prisma.task.findMany({
       where,
@@ -108,15 +110,20 @@ export class TasksService {
     userId: string,
     dto: CreateTaskDto,
   ): Promise<TaskView> {
-    const { role, workspaceId } = await loadProjectAndAssertAccess(
+    const { workspaceId } = await loadProjectAndAssertAccess(
       this.prisma,
       projectId,
       userId,
     );
 
-    if (!isAgencyRole(role)) {
-      throw new ForbiddenException('Only admin or manager can create tasks');
-    }
+    await assertProjectAllowsTaskChanges(this.prisma, projectId);
+
+    await assertAgencyRole(
+      this.prisma,
+      workspaceId,
+      userId,
+      'Only admin or manager can create tasks',
+    );
 
     if (dto.assigneeId) {
       await assertAssigneeInProject(
@@ -160,6 +167,8 @@ export class TasksService {
   ): Promise<TaskView> {
     const task = await this.loadTask(taskId);
     const role = await this.getWorkspaceRoleForTask(task, userId);
+
+    await assertProjectAllowsTaskChanges(this.prisma, task.project.id);
 
     let resolved;
     try {
@@ -223,12 +232,13 @@ export class TasksService {
   async getAllowedTransitions(
     taskId: string,
     userId: string,
-  ): Promise<{ targets: TaskStatus[] }> {
+  ): Promise<{ from: TaskStatus; targets: AllowedTransitionTarget[] }> {
     const task = await this.loadTask(taskId);
     const role = await this.getWorkspaceRoleForTask(task, userId);
 
     return {
-      targets: getAllowedTargetStatuses(role, task.status),
+      from: task.status,
+      targets: buildAllowedTransitionTargets(role, task.status),
     };
   }
 
@@ -238,11 +248,13 @@ export class TasksService {
     dto: UpdateTaskDto,
   ): Promise<TaskView> {
     const task = await this.loadTask(taskId);
-    const role = await this.getWorkspaceRoleForTask(task, userId);
-
-    if (!isAgencyRole(role)) {
-      throw new ForbiddenException('Only admin or manager can update tasks');
-    }
+    await this.assertTaskAccess(task, userId);
+    await assertAgencyRole(
+      this.prisma,
+      task.project.workspaceId,
+      userId,
+      'Only admin or manager can update tasks',
+    );
 
     if (
       dto.title === undefined &&
@@ -280,11 +292,13 @@ export class TasksService {
     dto: UpdateTaskDueDto,
   ): Promise<TaskView> {
     const task = await this.loadTask(taskId);
-    const role = await this.getWorkspaceRoleForTask(task, userId);
-
-    if (!isAgencyRole(role)) {
-      throw new ForbiddenException('Only admin or manager can change due date');
-    }
+    await this.assertTaskAccess(task, userId);
+    await assertAgencyRole(
+      this.prisma,
+      task.project.workspaceId,
+      userId,
+      'Only admin or manager can change due date',
+    );
 
     if (dto.dueAt === undefined && dto.reason === undefined) {
       throw new BadRequestException('Provide dueAt and/or reason');
