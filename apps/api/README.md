@@ -29,7 +29,7 @@ npm run db:seed
 npm run start:dev
 ```
 
-API listens on `http://localhost:3000` by default. Health check: `GET /health`.
+API listens on `http://localhost:3000` by default. Health check: `GET /health`. OpenAPI docs: `GET /docs`.
 
 ## Environment
 

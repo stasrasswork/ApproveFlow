@@ -3,6 +3,7 @@ import 'reflect-metadata';
 
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
 
 function configureCors(app: Awaited<ReturnType<typeof NestFactory.create>>): void {
@@ -26,6 +27,18 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('ApproveFlow API')
+    .setDescription(
+      'REST API for workspaces, projects, tasks, comments, and approval workflow.',
+    )
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('docs', app, swaggerDocument);
+
   const port = process.env.PORT || 3000;
   await app.listen(port);
 }
