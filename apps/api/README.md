@@ -12,16 +12,16 @@ Product rules and status transitions: [`../../approveflow-spec.md`](../../approv
 
 ## Quick start
 
-From the repository root, start PostgreSQL:
+From the repository root:
 
 ```bash
+npm install
 docker compose up -d
 ```
 
 Then in `apps/api`:
 
 ```bash
-npm install
 cp .env.example .env
 npm run db:generate
 npm run db:migrate

@@ -11,6 +11,8 @@ Product rules: [`approveflow-spec.md`](approveflow-spec.md) · Vision: [`approve
 | `apps/api` | NestJS + Prisma + PostgreSQL |
 | `apps/web` | React 19 + Vite + TanStack Query + Tailwind |
 
+Dependency lockfile: **root `package-lock.json` only** (npm workspaces). Per-app `node_modules/` folders are created by npm (`install-strategy=nested` in `.npmrc`).
+
 ## Prerequisites
 
 - Node.js 20+
@@ -19,17 +21,24 @@ Product rules: [`approveflow-spec.md`](approveflow-spec.md) · Vision: [`approve
 
 ## Quick start
 
-### 1. Start PostgreSQL
+### 1. Install dependencies (repository root)
+
+All installs use the root lockfile (`package-lock.json`). Do not run `npm install` inside `apps/*`.
+
+```bash
+npm install
+```
+
+### 2. Start PostgreSQL
 
 ```bash
 docker compose up -d
 ```
 
-### 2. API
+### 3. API
 
 ```bash
 cd apps/api
-npm install
 cp .env.example .env
 npm run db:generate
 npm run db:migrate
@@ -41,11 +50,10 @@ API: `http://localhost:3000` · Health: `GET /health` · OpenAPI: `http://localh
 
 Seed users (password `password123`): `admin@test.local`, `manager@test.local`, `member@test.local`, `client@test.local`
 
-### 3. Web
+### 4. Web
 
 ```bash
 cd apps/web
-npm install
 cp .env.example .env
 npm run dev
 ```
@@ -53,6 +61,8 @@ npm run dev
 Web: `http://localhost:5173` (proxies `/api` → API)
 
 ### Run both from root
+
+After step 3–4 env files exist:
 
 ```bash
 npm run dev:api   # terminal 1

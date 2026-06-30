@@ -11,8 +11,15 @@ Product rules: [`../../approveflow-spec.md`](../../approveflow-spec.md)
 
 ## Setup
 
+From the repository root (once):
+
 ```bash
 npm install
+```
+
+Then in `apps/web`:
+
+```bash
 cp .env.example .env
 npm run dev
 ```

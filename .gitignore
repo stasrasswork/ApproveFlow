@@ -10,11 +10,13 @@ node_modules/
 # Prisma generated client (regenerate with npm run db:generate)
 apps/api/src/generated/
 
-# Build output (Nest / TypeScript)
+# Build output (Nest / TypeScript / Vite)
 dist/
+dist-ssr/
 apps/api/dist/
 build/
 *.tsbuildinfo
+*.local
 
 # Logs & debug
 logs/
