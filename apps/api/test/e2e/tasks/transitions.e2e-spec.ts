@@ -125,4 +125,53 @@ describeWithSeededApp('Task transitions (e2e)', (getContext) => {
     expect(comments.body).toHaveLength(1);
     expect(comments.body[0].body).toBe('Fix the headline');
   });
+
+  it('manager recalls task from client_handoff to internal_review', async () => {
+    const { app } = getContext();
+    const managerToken = await loginAs(
+      app,
+      'manager@test.local',
+      SEED_PASSWORD,
+    );
+
+    const response = await request(app.getHttpServer())
+      .patch(`/tasks/${SEED_IDS.taskClientHandoff}/status`)
+      .set(authHeader(managerToken))
+      .send({ to: TaskStatus.INTERNAL_REVIEW })
+      .expect(200);
+
+    expect(response.body.status).toBe(TaskStatus.INTERNAL_REVIEW);
+  });
+
+  it('manager cycles internal_review ↔ production for revisions', async () => {
+    const { app } = getContext();
+    const managerToken = await loginAs(
+      app,
+      'manager@test.local',
+      SEED_PASSWORD,
+    );
+
+    const createResponse = await request(app.getHttpServer())
+      .post(`/projects/${SEED_IDS.project}/tasks`)
+      .set(authHeader(managerToken))
+      .send({ title: 'Review loop task' })
+      .expect(201);
+
+    const taskId = createResponse.body.id as string;
+
+    for (const to of [
+      TaskStatus.PRODUCTION,
+      TaskStatus.INTERNAL_REVIEW,
+      TaskStatus.PRODUCTION,
+      TaskStatus.INTERNAL_REVIEW,
+    ]) {
+      const response = await request(app.getHttpServer())
+        .patch(`/tasks/${taskId}/status`)
+        .set(authHeader(managerToken))
+        .send({ to })
+        .expect(200);
+
+      expect(response.body.status).toBe(to);
+    }
+  });
 });

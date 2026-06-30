@@ -37,6 +37,34 @@ describeWithSeededApp('Projects (e2e)', (getContext) => {
     expect(response.body[0].id).toBe(SEED_IDS.project);
   });
 
+  it('GET /workspaces/:id/projects returns only member projects for member', async () => {
+    const { app } = getContext();
+    const managerToken = await loginAs(
+      app,
+      'manager@test.local',
+      SEED_PASSWORD,
+    );
+    const memberToken = await loginAs(app, 'member@test.local', SEED_PASSWORD);
+
+    const hiddenProject = await request(app.getHttpServer())
+      .post(`/workspaces/${SEED_IDS.workspace}/projects`)
+      .set(authHeader(managerToken))
+      .send({ name: 'Managers only project' })
+      .expect(201);
+
+    const memberProjects = await request(app.getHttpServer())
+      .get(`/workspaces/${SEED_IDS.workspace}/projects`)
+      .set(authHeader(memberToken))
+      .expect(200);
+
+    const projectIds = memberProjects.body.map(
+      (project: { id: string }) => project.id,
+    );
+
+    expect(projectIds).toContain(SEED_IDS.project);
+    expect(projectIds).not.toContain(hiddenProject.body.id);
+  });
+
   it('POST /workspaces/:id/projects creates project for manager', async () => {
     const { app } = getContext();
     const token = await loginAs(app, 'manager@test.local', SEED_PASSWORD);
