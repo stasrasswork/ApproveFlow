@@ -10,6 +10,7 @@ export async function resetDb(prisma: PrismaService): Promise<void> {
     prisma.project.deleteMany(),
     prisma.workspaceMember.deleteMany(),
     prisma.workspace.deleteMany(),
+    prisma.passwordResetToken.deleteMany(),
     prisma.user.deleteMany(),
   ]);
 }

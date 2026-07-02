@@ -106,4 +106,41 @@ describeWithSeededApp('Auth (e2e)', (getContext) => {
     });
     expect(response.body.passwordHash).toBeUndefined();
   });
+
+  it('POST /auth/forgot-password returns generic message', async () => {
+    const { app } = getContext();
+    const response = await request(app.getHttpServer())
+      .post('/auth/forgot-password')
+      .send({ email: 'manager@test.local' })
+      .expect(200);
+
+    expect(response.body.message).toEqual(expect.any(String));
+    expect(response.body.resetToken).toEqual(expect.any(String));
+  });
+
+  it('POST /auth/reset-password updates password', async () => {
+    const { app } = getContext();
+    const forgot = await request(app.getHttpServer())
+      .post('/auth/forgot-password')
+      .send({ email: 'member@test.local' })
+      .expect(200);
+
+    const token = forgot.body.resetToken as string;
+    expect(token).toEqual(expect.any(String));
+
+    await request(app.getHttpServer())
+      .post('/auth/reset-password')
+      .send({ token, password: 'new-password-123' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'member@test.local', password: SEED_PASSWORD })
+      .expect(401);
+
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'member@test.local', password: 'new-password-123' })
+      .expect(200);
+  });
 });

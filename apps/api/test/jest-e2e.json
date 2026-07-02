@@ -15,8 +15,8 @@
   },
   "moduleNameMapper": {
     "^(\\.{1,2}/.*)\\.js$": "$1",
-    "^class-validator$": "<rootDir>/../node_modules/class-validator",
-    "^class-transformer$": "<rootDir>/../node_modules/class-transformer"
+    "^class-validator$": "<rootDir>/../../../node_modules/class-validator",
+    "^class-transformer$": "<rootDir>/../../../node_modules/class-transformer"
   },
   "setupFiles": ["<rootDir>/setup-e2e.ts"],
   "testTimeout": 30000
