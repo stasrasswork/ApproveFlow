@@ -1,5 +1,14 @@
 import type { ProjectStatus, TaskStatus } from '../api/types';
 
+/** Simplified marketing / onboarding flow (omits handoff and pending closure). */
+export const WORKFLOW_STEPS = [
+  { status: 'BRIEF', label: 'Brief' },
+  { status: 'PRODUCTION', label: 'Production' },
+  { status: 'INTERNAL_REVIEW', label: 'Review' },
+  { status: 'CLIENT_APPROVAL', label: 'Client approval' },
+  { status: 'DONE', label: 'Done' },
+] as const satisfies ReadonlyArray<{ status: TaskStatus; label: string }>;
+
 export const STATUS_LABELS: Record<TaskStatus, string> = {
   BRIEF: 'Brief',
   PRODUCTION: 'In progress',

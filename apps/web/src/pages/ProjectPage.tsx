@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectsApi, tasksApi, workspacesApi } from '../api/endpoints';
 import type { ProjectStatus, TaskView } from '../api/types';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 import { ProjectActivityItem } from '../components/ProjectActivityItem';
 import { ProjectStatsOverview } from '../components/ProjectStatsOverview';
 import { Button } from '../components/ui/Button';
@@ -15,7 +15,7 @@ import { ProjectStatusBadge } from '../components/ui/ProjectStatusBadge';
 import { RoleBadge } from '../components/ui/RoleBadge';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { ErrorAlert } from '../components/ui/ErrorAlert';
-import { ACTIVITY_PAGE_SIZE, LIVE_REFETCH_MS } from '../lib/constants';
+import { ACTIVITY_PAGE_SIZE, liveQueryOptions } from '../lib/constants';
 import { getApiErrorMessage } from '../lib/api-error';
 import { workspaceMemberDropdownOptions } from '../lib/dropdown-options';
 import { ensureAssigneeInProject } from '../lib/ensure-assignee';
@@ -55,25 +55,28 @@ export function ProjectPage() {
     queryKey: ['project', projectId],
     queryFn: () => projectsApi.get(projectId),
     enabled: Boolean(projectId),
+    ...liveQueryOptions,
   });
 
   const { data: stats } = useQuery({
     queryKey: ['project-stats', projectId],
     queryFn: () => projectsApi.stats(projectId),
     enabled: Boolean(projectId),
+    ...liveQueryOptions,
   });
 
   const { data: activity = [] } = useQuery({
     queryKey: ['project-activity', projectId],
     queryFn: () => projectsApi.activity(projectId),
     enabled: Boolean(projectId),
-    refetchInterval: LIVE_REFETCH_MS,
+    ...liveQueryOptions,
   });
 
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['tasks', projectId],
     queryFn: () => tasksApi.list(projectId),
     enabled: Boolean(projectId),
+    ...liveQueryOptions,
   });
 
   const { data: projectMembers = [] } = useQuery({
@@ -154,6 +157,10 @@ export function ProjectPage() {
       queryClient.invalidateQueries({ queryKey: ['project-members', projectId] });
       setMemberToRemove(null);
     },
+    onError: (err) => {
+      setActionError(getApiErrorMessage(err, 'Failed to remove member'));
+      setMemberToRemove(null);
+    },
   });
 
   const deleteProjectMutation = useMutation({
@@ -162,6 +169,10 @@ export function ProjectPage() {
       queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
       setConfirmDeleteProject(false);
       navigate(`/w/${workspaceId}/projects`, { replace: true });
+    },
+    onError: (err) => {
+      setActionError(getApiErrorMessage(err, 'Failed to delete project'));
+      setConfirmDeleteProject(false);
     },
   });
 

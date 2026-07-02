@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
+import { TaskWorkflowSteps } from '../components/TaskWorkflowSteps';
 import { getApiErrorMessage } from '../lib/api-error';
 import { Button } from '../components/ui/Button';
 import { ErrorAlert } from '../components/ui/ErrorAlert';
@@ -60,9 +61,12 @@ export function LoginPage() {
           </p>
         </div>
 
-        <p className="relative text-sm text-brand-200">
-          brief → production → review → client approval → done
-        </p>
+        <div className="relative space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-brand-200">
+            How it works
+          </p>
+          <TaskWorkflowSteps variant="dark" />
+        </div>
       </aside>
 
       <div className="flex flex-1 items-center justify-center px-4 py-12">
@@ -72,6 +76,9 @@ export function LoginPage() {
             <p className="mt-1 text-sm text-slate-500">
               Sign in to your workspace
             </p>
+            <div className="mt-5 lg:hidden">
+              <TaskWorkflowSteps variant="light" />
+            </div>
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -97,9 +104,7 @@ export function LoginPage() {
                 />
               </Field>
 
-              {error ? (
-                <ErrorAlert message={error} />
-              ) : null}
+              <ErrorAlert message={error} />
 
               <FormActions>
                 <Button type="submit" className="w-full" disabled={submitting}>
@@ -118,15 +123,6 @@ export function LoginPage() {
               Create one
             </Link>
           </p>
-
-          <div className="mt-6 rounded-xl bg-brand-50/80 p-3 ring-1 ring-brand-100">
-            <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">
-              Demo credentials
-            </p>
-            <p className="mt-1 text-sm text-slate-600">
-              manager@test.local / password123
-            </p>
-          </div>
         </div>
       </div>
     </div>

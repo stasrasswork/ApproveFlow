@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { workspacesApi } from '../api/endpoints';
 import type { WorkspaceRole } from '../api/types';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -11,6 +11,7 @@ import { Dropdown } from '../components/ui/Dropdown';
 import { ErrorAlert } from '../components/ui/ErrorAlert';
 import { Input, Field, FormStack, FormActions } from '../components/ui/Form';
 import { getApiErrorMessage } from '../lib/api-error';
+import { liveQueryOptions } from '../lib/constants';
 import { roleDropdownOptions } from '../lib/dropdown-options';
 import { userDisplayName } from '../lib/format';
 import {
@@ -48,6 +49,7 @@ export function WorkspaceMembersPage() {
     queryKey: ['workspace-members', workspaceId],
     queryFn: () => workspacesApi.members.list(workspaceId),
     enabled: Boolean(workspaceId),
+    ...liveQueryOptions,
   });
 
   const inviteMutation = useMutation({
@@ -77,6 +79,9 @@ export function WorkspaceMembersPage() {
       queryClient.invalidateQueries({
         queryKey: ['workspace-members', workspaceId],
       });
+    },
+    onError: (err) => {
+      setSettingsError(getApiErrorMessage(err, 'Failed to update role'));
     },
   });
 

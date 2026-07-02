@@ -2,13 +2,14 @@ import { type FormEvent, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { projectsApi } from '../api/endpoints';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 import { ProjectStatusBadge } from '../components/ui/ProjectStatusBadge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { ErrorAlert } from '../components/ui/ErrorAlert';
 import { Input, Textarea, Field, FormStack, FormActions } from '../components/ui/Form';
 import { getApiErrorMessage } from '../lib/api-error';
+import { liveQueryOptions } from '../lib/constants';
 import { isAgencyRole } from '../lib/roles';
 
 export function ProjectsPage() {
@@ -25,6 +26,7 @@ export function ProjectsPage() {
     queryKey: ['projects', workspaceId],
     queryFn: () => projectsApi.list(workspaceId),
     enabled: Boolean(workspaceId),
+    ...liveQueryOptions,
   });
 
   const createMutation = useMutation({

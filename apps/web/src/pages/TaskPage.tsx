@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { commentsApi, projectsApi, tasksApi, workspacesApi } from '../api/endpoints';
 import type { AllowedTransitions, TaskStatus } from '../api/types';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import {
@@ -13,10 +13,11 @@ import {
 } from '../components/ui/DueDatePicker';
 import { AuthorLine } from '../components/ui/RoleBadge';
 import { Dropdown } from '../components/ui/Dropdown';
+import { ErrorAlert } from '../components/ui/ErrorAlert';
 import { TitleInput, Textarea, Field, FormStack, FormActions, InlineFormRow } from '../components/ui/Form';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { getApiErrorMessage } from '../lib/api-error';
-import { LIVE_REFETCH_MS } from '../lib/constants';
+import { liveQueryOptions } from '../lib/constants';
 import { workspaceMemberDropdownOptions } from '../lib/dropdown-options';
 import { ensureAssigneeInProject } from '../lib/ensure-assignee';
 import {
@@ -60,31 +61,35 @@ export function TaskPage() {
     queryKey: ['task', taskId],
     queryFn: () => tasksApi.get(taskId),
     enabled: Boolean(taskId),
+    ...liveQueryOptions,
   });
 
   const { data: transitions } = useQuery({
     queryKey: ['task-transitions', taskId],
     queryFn: () => tasksApi.allowedTransitions(taskId),
     enabled: Boolean(taskId),
+    ...liveQueryOptions,
   });
 
   const { data: comments = [] } = useQuery({
     queryKey: ['comments', taskId],
     queryFn: () => commentsApi.list(taskId),
     enabled: Boolean(taskId),
-    refetchInterval: LIVE_REFETCH_MS,
+    ...liveQueryOptions,
   });
 
   const { data: events = [] } = useQuery({
     queryKey: ['task-events', taskId],
     queryFn: () => tasksApi.events(taskId),
     enabled: Boolean(taskId),
+    ...liveQueryOptions,
   });
 
   const { data: dueChanges = [] } = useQuery({
     queryKey: ['task-due-changes', taskId],
     queryFn: () => tasksApi.dueChanges(taskId),
     enabled: Boolean(taskId),
+    ...liveQueryOptions,
   });
 
   const { data: workspaceMembers = [] } = useQuery({
@@ -387,9 +392,7 @@ export function TaskPage() {
           {showActionsCard ? (
             <Card title="Actions" accent="violet">
               {transitionError ? (
-                <p className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                  {transitionError}
-                </p>
+                <ErrorAlert message={transitionError} className="mb-3" />
               ) : null}
               <div className="flex flex-wrap gap-2">
                 {showTransitions

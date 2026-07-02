@@ -3,9 +3,10 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { workspacesApi } from '../api/endpoints';
 import { getApiErrorMessage } from '../lib/api-error';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { ErrorAlert } from '../components/ui/ErrorAlert';
 import { Input, Field, FormStack, FormActions } from '../components/ui/Form';
 
 export function CreateWorkspacePage() {
@@ -71,11 +72,7 @@ export function CreateWorkspacePage() {
               />
             </Field>
 
-            {error ? (
-              <p className="rounded-xl bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700">
-                {error}
-              </p>
-            ) : null}
+            <ErrorAlert message={error} />
 
             <FormActions>
               <Button type="submit" disabled={createMutation.isPending}>

@@ -55,7 +55,3 @@ The dev server proxies `/api/*` to the backend (see `vite.config.ts`).
 | `/w/:workspaceId/projects/:projectId` | Project dashboard |
 | `/w/:workspaceId/projects/:projectId/tasks/:taskId` | Task detail |
 | `/w/:workspaceId/members` | Workspace settings & team |
-
-## Demo login
-
-After `npm run db:seed` in `apps/api`, use `manager@test.local` / `password123`.

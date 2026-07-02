@@ -1,10 +1,11 @@
 import { type FormEvent, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { authApi } from '../api/endpoints';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 import { getApiErrorMessage } from '../lib/api-error';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { ErrorAlert } from '../components/ui/ErrorAlert';
 import { Input, Field, FormStack, FormActions } from '../components/ui/Form';
 
 export function RegisterPage() {
@@ -80,11 +81,7 @@ export function RegisterPage() {
               />
             </Field>
 
-            {error ? (
-              <p className="rounded-xl bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700">
-                {error}
-              </p>
-            ) : null}
+            <ErrorAlert message={error} />
             {message ? (
               <p className="rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-800">
                 {message}
