@@ -114,6 +114,10 @@ npm run test:api
 npm run test:web
 ```
 
+## Production deployment
+
+See [`DEPLOY.md`](DEPLOY.md) for Docker Compose, manual deploy, and Render.
+
 ## Documentation
 
 - [`apps/api/README.md`](apps/api/README.md) — API setup, env, database, tests

@@ -9,7 +9,7 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "start:dev": "nest start --watch",
-    "start:prod": "nest start",
+    "start:prod": "node dist/main.js",
     "build": "nest build",
     "lint": "eslint \"src/**/*.{js,mjs,cjs,ts,mts,cts}\"",
     "test": "npm run test:unit && npm run test:e2e",

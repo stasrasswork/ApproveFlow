@@ -50,6 +50,9 @@ jobs:
       - name: Unit tests
         run: npm run test:unit -w api
 
+      - name: Build API
+        run: npm run build -w api
+
       - name: E2E tests
         run: npm run test:e2e -w api
         env:
