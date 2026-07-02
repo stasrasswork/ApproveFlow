@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { MeWorkspace } from '../api/types';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 import { ROLE_LABELS } from '../lib/roles';
 import { Dropdown, type DropdownOption } from './ui/Dropdown';
 

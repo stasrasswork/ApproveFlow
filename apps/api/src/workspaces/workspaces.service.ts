@@ -1,6 +1,4 @@
-import {
-  Injectable,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import {
   Workspace,
   WorkspaceRole,
@@ -8,7 +6,6 @@ import {
 import {
   assertAdminRole,
   assertWorkspaceExists,
-  getWorkspaceRole,
   rethrowUniqueAsConflict,
   slugify,
 } from '../common/index.js';

@@ -1,5 +1,5 @@
 import { Navigate, Link } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 import { ButtonLink } from '../components/ui/Button';
 
 export function HomePage() {

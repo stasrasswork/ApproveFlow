@@ -1,5 +1,5 @@
 import { Link, Outlet } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/useAuth';
 import { userDisplayName } from '../lib/format';
 import { ROLE_LABELS } from '../lib/roles';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
