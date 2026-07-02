@@ -104,6 +104,15 @@ export function LoginPage() {
                 />
               </Field>
 
+              <p className="text-right">
+                <Link
+                  to="/forgot-password"
+                  className="text-sm font-medium text-brand-600 hover:text-brand-700"
+                >
+                  Forgot password?
+                </Link>
+              </p>
+
               <ErrorAlert message={error} />
 
               <FormActions>

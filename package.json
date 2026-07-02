@@ -19,6 +19,7 @@
     "lint": "npm run lint -w api && npm run lint -w web",
     "test": "npm run test:api && npm run test:web",
     "test:api": "npm run test -w api",
-    "test:web": "npm run test -w web"
+    "test:web": "npm run test -w web",
+    "test:web:e2e": "bash scripts/e2e-web.sh"
   }
 }

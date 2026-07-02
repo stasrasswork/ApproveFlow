@@ -22,3 +22,7 @@ export function canRemoveMembers(role: WorkspaceRole): boolean {
 export function canUpdateWorkspace(role: WorkspaceRole): boolean {
   return role === 'ADMIN';
 }
+
+export function canDeleteWorkspace(role: WorkspaceRole): boolean {
+  return role === 'ADMIN';
+}

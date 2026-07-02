@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { workspacesApi } from '../api/endpoints';
 import type { WorkspaceRole } from '../api/types';
@@ -16,6 +16,7 @@ import { roleDropdownOptions } from '../lib/dropdown-options';
 import { userDisplayName } from '../lib/format';
 import {
   canChangeMemberRoles,
+  canDeleteWorkspace,
   canRemoveMembers,
   canUpdateWorkspace,
   isAgencyRole,
@@ -25,6 +26,7 @@ import { isValidSlug, SLUG_VALIDATION_MESSAGE } from '../lib/slug';
 
 export function WorkspaceMembersPage() {
   const { workspaceId = '' } = useParams();
+  const navigate = useNavigate();
   const { user, activeWorkspace, refreshUser } = useAuth();
   const role = activeWorkspace?.role;
   const queryClient = useQueryClient();
@@ -38,6 +40,7 @@ export function WorkspaceMembersPage() {
     userId: string;
     name: string;
   } | null>(null);
+  const [confirmDeleteWorkspace, setConfirmDeleteWorkspace] = useState(false);
 
   const { data: workspace } = useQuery({
     queryKey: ['workspace', workspaceId],
@@ -113,6 +116,20 @@ export function WorkspaceMembersPage() {
     },
   });
 
+  const deleteWorkspaceMutation = useMutation({
+    mutationFn: () => workspacesApi.delete(workspaceId),
+    onSuccess: async () => {
+      setSettingsError(null);
+      setConfirmDeleteWorkspace(false);
+      await refreshUser();
+      navigate('/', { replace: true });
+    },
+    onError: (err) => {
+      setSettingsError(getApiErrorMessage(err, 'Failed to delete workspace'));
+      setConfirmDeleteWorkspace(false);
+    },
+  });
+
   function handleInvite(event: FormEvent) {
     event.preventDefault();
     setInviteError(null);
@@ -154,11 +171,21 @@ export function WorkspaceMembersPage() {
   const canEditRoles = role ? canChangeMemberRoles(role) : false;
   const canRemove = role ? canRemoveMembers(role) : false;
   const canRename = role ? canUpdateWorkspace(role) : false;
+  const canDelete = role ? canDeleteWorkspace(role) : false;
 
   const displayName = workspace?.name ?? activeWorkspace?.name;
 
   return (
     <div className="space-y-8">
+      <ConfirmDialog
+        open={confirmDeleteWorkspace}
+        title="Delete workspace?"
+        description="This will permanently delete the workspace, all projects, and tasks. This action cannot be undone."
+        confirmLabel="Delete workspace"
+        loading={deleteWorkspaceMutation.isPending}
+        onConfirm={() => deleteWorkspaceMutation.mutate()}
+        onCancel={() => setConfirmDeleteWorkspace(false)}
+      />
       <ConfirmDialog
         open={memberToRemove !== null}
         title="Remove from workspace?"
@@ -221,6 +248,17 @@ export function WorkspaceMembersPage() {
                 >
                   Save changes
                 </Button>
+                {canDelete ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-rose-600 hover:text-rose-700"
+                    disabled={deleteWorkspaceMutation.isPending}
+                    onClick={() => setConfirmDeleteWorkspace(true)}
+                  >
+                    Delete workspace
+                  </Button>
+                ) : null}
               </FormActions>
             </FormStack>
           </form>

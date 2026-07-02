@@ -9,6 +9,7 @@ import { ProjectStatsOverview } from '../components/ProjectStatsOverview';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { DatePickerInput } from '../components/ui/DatePickerInput';
 import { Dropdown } from '../components/ui/Dropdown';
 import { Input, Textarea, Field, FormStack, FormActions } from '../components/ui/Form';
 import { ProjectStatusBadge } from '../components/ui/ProjectStatusBadge';
@@ -19,7 +20,7 @@ import { ACTIVITY_PAGE_SIZE, liveQueryOptions } from '../lib/constants';
 import { getApiErrorMessage } from '../lib/api-error';
 import { workspaceMemberDropdownOptions } from '../lib/dropdown-options';
 import { ensureAssigneeInProject } from '../lib/ensure-assignee';
-import { userDisplayName } from '../lib/format';
+import { userDisplayName, formatDate, formatDaysUntil, dateInputToIso } from '../lib/format';
 import {
   assigneeNeedsProjectAccess,
   filterAssignableMembers,
@@ -41,6 +42,7 @@ export function ProjectPage() {
   const [editProjectStatus, setEditProjectStatus] = useState<ProjectStatus>('ACTIVE');
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
+  const [taskDueDate, setTaskDueDate] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
   const [memberUserId, setMemberUserId] = useState('');
   const [activityLimit, setActivityLimit] = useState(ACTIVITY_PAGE_SIZE);
@@ -123,6 +125,7 @@ export function ProjectPage() {
         title: taskTitle,
         description: taskDescription || undefined,
         assigneeId: assigneeId || undefined,
+        dueAt: taskDueDate ? dateInputToIso(taskDueDate) : undefined,
       });
     },
     onSuccess: () => {
@@ -132,6 +135,7 @@ export function ProjectPage() {
       setShowCreateTask(false);
       setTaskTitle('');
       setTaskDescription('');
+      setTaskDueDate('');
       setAssigneeId('');
     },
     onError: (err) => {
@@ -425,6 +429,14 @@ export function ProjectPage() {
                         </p>
                       ) : null}
                     </Field>
+                    <Field label="Due date" htmlFor="task-due">
+                      <DatePickerInput
+                        id="task-due"
+                        value={taskDueDate}
+                        onChange={setTaskDueDate}
+                        placeholder="Optional"
+                      />
+                    </Field>
                     <FormActions>
                       <Button
                         type="submit"
@@ -448,6 +460,7 @@ export function ProjectPage() {
               <ul className="space-y-2">
                 {tasks.map((task: TaskView) => {
                   const blocking = getBlockingHint(task.status);
+                  const dueRelative = formatDaysUntil(task.dueAt);
                   return (
                     <li key={task.id}>
                       <Link
@@ -464,6 +477,11 @@ export function ProjectPage() {
                           {task.assignee
                             ? `Assignee: ${userDisplayName(task.assignee)}`
                             : 'Unassigned'}
+                          {task.dueAt
+                            ? ` · Due ${formatDate(task.dueAt)}${
+                                dueRelative ? ` (${dueRelative})` : ''
+                              }`
+                            : ''}
                           {blocking ? ` · ${blocking}` : ''}
                         </p>
                       </Link>
