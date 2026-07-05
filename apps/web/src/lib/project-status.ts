@@ -6,6 +6,10 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   COMPLETED: 'Completed',
 };
 
+export const PROJECT_STATUS_OPTIONS = (
+  Object.entries(PROJECT_STATUS_LABELS) as [ProjectStatus, string][]
+).map(([value, label]) => ({ value, label }));
+
 export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
   ACTIVE: 'bg-emerald-50 text-emerald-800 ring-emerald-100',
   PAUSED: 'bg-amber-50 text-amber-900 ring-amber-100',

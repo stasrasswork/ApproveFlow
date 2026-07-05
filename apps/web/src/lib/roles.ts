@@ -1,15 +1,11 @@
+import {
+  AGENCY_ROLES,
+  isAgencyRole,
+  ROLE_LABELS,
+} from '@approveflow/shared';
 import type { WorkspaceRole } from '../api/types';
 
-export const ROLE_LABELS: Record<WorkspaceRole, string> = {
-  ADMIN: 'Admin',
-  MANAGER: 'Manager',
-  MEMBER: 'Member',
-  CLIENT_VIEW: 'Client',
-};
-
-export function isAgencyRole(role: WorkspaceRole): boolean {
-  return role === 'ADMIN' || role === 'MANAGER';
-}
+export { AGENCY_ROLES, isAgencyRole, ROLE_LABELS };
 
 export function canChangeMemberRoles(role: WorkspaceRole): boolean {
   return role === 'ADMIN';

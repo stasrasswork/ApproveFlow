@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProjectStatus } from '../generated/prisma/client.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 
@@ -12,7 +12,7 @@ export async function assertProjectAllowsTaskChanges(
   });
 
   if (!project) {
-    return;
+    throw new NotFoundException(`Project ${projectId} not found`);
   }
 
   if (project.status === ProjectStatus.COMPLETED) {

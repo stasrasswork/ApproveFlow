@@ -1,4 +1,7 @@
-import type { ProjectStatus, TaskStatus } from '../api/types';
+import { TASK_STATUS_LABELS } from '@approveflow/shared';
+import type { TaskStatus } from '../api/types';
+
+export { TASK_STATUS_LABELS as STATUS_LABELS };
 
 /** Simplified marketing / onboarding flow (omits handoff and pending closure). */
 export const WORKFLOW_STEPS = [
@@ -8,16 +11,6 @@ export const WORKFLOW_STEPS = [
   { status: 'CLIENT_APPROVAL', label: 'Client approval' },
   { status: 'DONE', label: 'Done' },
 ] as const satisfies ReadonlyArray<{ status: TaskStatus; label: string }>;
-
-export const STATUS_LABELS: Record<TaskStatus, string> = {
-  BRIEF: 'Brief',
-  PRODUCTION: 'In progress',
-  INTERNAL_REVIEW: 'Internal review',
-  CLIENT_HANDOFF: 'Awaiting client',
-  CLIENT_APPROVAL: 'Client approval',
-  PENDING_CLOSURE: 'Pending closure',
-  DONE: 'Done',
-};
 
 export const STATUS_COLORS: Record<TaskStatus, string> = {
   BRIEF: 'bg-slate-100 text-slate-700 ring-1 ring-slate-200',
@@ -47,12 +40,3 @@ export function getBlockingHint(status: TaskStatus): string | null {
 }
 
 export type TransitionButtonVariant = 'primary' | 'danger' | 'secondary';
-
-export const PROJECT_STATUS_OPTIONS: {
-  value: ProjectStatus;
-  label: string;
-}[] = [
-  { value: 'ACTIVE', label: 'Active' },
-  { value: 'PAUSED', label: 'Paused' },
-  { value: 'COMPLETED', label: 'Completed' },
-];

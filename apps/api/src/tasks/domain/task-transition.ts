@@ -3,6 +3,7 @@
  * Source of truth: approveflow-spec.md → «Матрица переходов».
  */
 
+import { TASK_STATUS_LABELS } from '@approveflow/shared';
 import {
   ClientApprovalType,
   TaskEventType,
@@ -209,15 +210,7 @@ export function getAllowedTargetStatuses(
 
 export type TransitionButtonVariant = 'primary' | 'danger' | 'secondary';
 
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  [TaskStatus.BRIEF]: 'Brief',
-  [TaskStatus.PRODUCTION]: 'In progress',
-  [TaskStatus.INTERNAL_REVIEW]: 'Internal review',
-  [TaskStatus.CLIENT_HANDOFF]: 'Awaiting client',
-  [TaskStatus.CLIENT_APPROVAL]: 'Client approval',
-  [TaskStatus.PENDING_CLOSURE]: 'Pending closure',
-  [TaskStatus.DONE]: 'Done',
-};
+const STATUS_LABELS = TASK_STATUS_LABELS;
 
 const TRANSITION_LABELS: Partial<
   Record<TaskStatus, Partial<Record<TaskStatus, string>>>
