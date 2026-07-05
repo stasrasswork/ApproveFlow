@@ -6,22 +6,27 @@ import {
   HttpStatus,
   Param,
   Post,
-  UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   AuthUser,
   CurrentUser,
 } from '../auth/current-user.decorator.js';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { CreateTaskDto } from './dto/index.js';
 import { TaskView, TasksService } from './tasks.service.js';
 
-@UseGuards(JwtAuthGuard)
+@ApiTags('tasks')
+@ApiBearerAuth()
 @Controller('projects/:projectId/tasks')
 export class ProjectTasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Get()
+  @ApiOperation({ summary: 'List tasks in a project' })
   findByProject(
     @CurrentUser() user: AuthUser,
     @Param('projectId') projectId: string,
@@ -31,6 +36,7 @@ export class ProjectTasksController {
 
   @HttpCode(HttpStatus.CREATED)
   @Post()
+  @ApiOperation({ summary: 'Create a task in a project' })
   create(
     @CurrentUser() user: AuthUser,
     @Param('projectId') projectId: string,

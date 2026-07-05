@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import { WorkspaceRole } from '../generated/prisma/client.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { getWorkspaceRole } from './workspace-access.js';
+import { assertAgencyRole, getWorkspaceRole } from './workspace-access.js';
+
+export const MANAGE_PROJECTS_FORBIDDEN =
+  'Only admin or manager can manage projects';
 
 export type ProjectScope = {
   id: string;
@@ -63,6 +66,17 @@ export async function loadProjectAndAssertAccess(
 
   const role = await assertProjectAccess(prisma, project, userId);
   return { ...project, role };
+}
+
+export async function assertAgencyProjectAccess(
+  prisma: PrismaService,
+  projectId: string,
+  userId: string,
+  message = MANAGE_PROJECTS_FORBIDDEN,
+): Promise<ProjectWithAccess> {
+  const project = await loadProjectAndAssertAccess(prisma, projectId, userId);
+  await assertAgencyRole(prisma, project.workspaceId, userId, message);
+  return project;
 }
 
 export async function assertAssigneeInProject(

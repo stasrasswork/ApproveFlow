@@ -7,17 +7,21 @@ import {
   HttpStatus,
   Param,
   Post,
-  UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   AuthUser,
   CurrentUser,
 } from '../auth/current-user.decorator.js';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { AddProjectMemberDto } from './dto/index.js';
 import { ProjectMemberWithUser, ProjectMembersService } from './project-members.service.js';
 
-@UseGuards(JwtAuthGuard)
+@ApiTags('project-members')
+@ApiBearerAuth()
 @Controller('projects/:projectId/members')
 export class ProjectMembersController {
   constructor(
@@ -25,6 +29,7 @@ export class ProjectMembersController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'List project members' })
   list(
     @CurrentUser() user: AuthUser,
     @Param('projectId') projectId: string,
@@ -34,6 +39,7 @@ export class ProjectMembersController {
 
   @HttpCode(HttpStatus.CREATED)
   @Post()
+  @ApiOperation({ summary: 'Add a member to a project' })
   add(
     @CurrentUser() user: AuthUser,
     @Param('projectId') projectId: string,
@@ -44,6 +50,7 @@ export class ProjectMembersController {
 
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':userId')
+  @ApiOperation({ summary: 'Remove a member from a project' })
   remove(
     @CurrentUser() user: AuthUser,
     @Param('projectId') projectId: string,

@@ -22,9 +22,4 @@ export class UpdateTaskDto {
   @ValidateIf((_object, value) => value !== null)
   @IsString()
   assigneeId?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  sprintLabel?: string | null;
 }

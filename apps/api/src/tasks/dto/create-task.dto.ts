@@ -24,9 +24,4 @@ export class CreateTaskDto {
   @IsOptional()
   @IsDateString()
   dueAt?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  sprintLabel?: string;
 }

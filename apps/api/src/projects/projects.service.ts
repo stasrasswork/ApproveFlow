@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   ClientApprovalType,
   Project,
@@ -7,15 +7,17 @@ import {
   WorkspaceRole,
 } from '../generated/prisma/client.js';
 import {
+  assertAgencyProjectAccess,
   assertAgencyRole,
-  assertProjectAccess,
   assertWorkspaceExists,
   buildTaskListWhere,
   getWorkspaceRole,
   isAgencyRole,
+  listClientsOutsideProject,
   loadProjectAndAssertAccess,
   loadWorkspaceRoleMap,
   userBriefSelect,
+  type ClientOutsideProject,
   type UserBrief,
 } from '../common/index.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -116,20 +118,19 @@ export class ProjectsService {
   }
 
   async findOne(projectId: string, userId: string): Promise<Project> {
-    const project = await this.prisma.project.findUnique({
+    await loadProjectAndAssertAccess(this.prisma, projectId, userId);
+    return this.prisma.project.findUniqueOrThrow({
       where: { id: projectId },
     });
-
-    if (!project) {
-      throw new NotFoundException(`Project ${projectId} not found`);
-    }
-
-    await assertProjectAccess(this.prisma, project, userId);
-    return project;
   }
 
   async getStats(projectId: string, userId: string): Promise<ProjectStats> {
-    const taskWhere = await this.buildTaskScopeWhere(projectId, userId);
+    const { role } = await loadProjectAndAssertAccess(
+      this.prisma,
+      projectId,
+      userId,
+    );
+    const taskWhere = buildTaskListWhere(projectId, role, userId);
     const now = new Date();
 
     const [clientHandoff, clientApproval, notDone, overdueDue] =
@@ -159,12 +160,12 @@ export class ProjectsService {
     projectId: string,
     userId: string,
   ): Promise<ProjectActivityItem[]> {
-    const { workspaceId } = await loadProjectAndAssertAccess(
+    const { workspaceId, role } = await loadProjectAndAssertAccess(
       this.prisma,
       projectId,
       userId,
     );
-    const taskWhere = await this.buildTaskScopeWhere(projectId, userId);
+    const taskWhere = buildTaskListWhere(projectId, role, userId);
     const roleByUserId = await loadWorkspaceRoleMap(this.prisma, workspaceId);
 
     const [events, comments, dueChanges] = await Promise.all([
@@ -234,23 +235,25 @@ export class ProjectsService {
     return items;
   }
 
-  async update(
+  async getClientsOutside(
     projectId: string,
     userId: string,
-    dto: UpdateProjectDto,
-  ): Promise<Project> {
-    const { workspaceId } = await loadProjectAndAssertAccess(
+  ): Promise<ClientOutsideProject[]> {
+    const { workspaceId } = await assertAgencyProjectAccess(
       this.prisma,
       projectId,
       userId,
     );
 
-    await assertAgencyRole(
-      this.prisma,
-      workspaceId,
-      userId,
-      'Only admin or manager can manage projects',
-    );
+    return listClientsOutsideProject(this.prisma, projectId, workspaceId);
+  }
+
+  async update(
+    projectId: string,
+    userId: string,
+    dto: UpdateProjectDto,
+  ): Promise<Project> {
+    await assertAgencyProjectAccess(this.prisma, projectId, userId);
 
     return this.prisma.project.update({
       where: { id: projectId },
@@ -259,34 +262,10 @@ export class ProjectsService {
   }
 
   async delete(projectId: string, userId: string): Promise<void> {
-    const { workspaceId } = await loadProjectAndAssertAccess(
-      this.prisma,
-      projectId,
-      userId,
-    );
-
-    await assertAgencyRole(
-      this.prisma,
-      workspaceId,
-      userId,
-      'Only admin or manager can manage projects',
-    );
+    await assertAgencyProjectAccess(this.prisma, projectId, userId);
 
     await this.prisma.project.delete({
       where: { id: projectId },
     });
-  }
-
-  private async buildTaskScopeWhere(
-    projectId: string,
-    userId: string,
-  ) {
-    const { role } = await loadProjectAndAssertAccess(
-      this.prisma,
-      projectId,
-      userId,
-    );
-
-    return buildTaskListWhere(projectId, role, userId);
   }
 }

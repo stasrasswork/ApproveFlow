@@ -5,9 +5,8 @@ import {
 } from '@nestjs/common';
 import { ProjectMember } from '../generated/prisma/client.js';
 import {
-  assertAgencyRole,
+  assertAgencyProjectAccess,
   rethrowUniqueAsConflict,
-  loadProjectAndAssertAccess,
   userBriefSelect,
   type UserBrief,
 } from '../common/index.js';
@@ -26,18 +25,7 @@ export class ProjectMembersService {
     projectId: string,
     userId: string,
   ): Promise<ProjectMemberWithUser[]> {
-    const project = await loadProjectAndAssertAccess(
-      this.prisma,
-      projectId,
-      userId,
-    );
-
-    await assertAgencyRole(
-      this.prisma,
-      project.workspaceId,
-      userId,
-      'Only admin or manager can manage projects',
-    );
+    await assertAgencyProjectAccess(this.prisma, projectId, userId);
 
     return this.prisma.projectMember.findMany({
       where: { projectId },
@@ -51,17 +39,10 @@ export class ProjectMembersService {
     userId: string,
     dto: AddProjectMemberDto,
   ): Promise<ProjectMemberWithUser> {
-    const project = await loadProjectAndAssertAccess(
+    const project = await assertAgencyProjectAccess(
       this.prisma,
       projectId,
       userId,
-    );
-
-    await assertAgencyRole(
-      this.prisma,
-      project.workspaceId,
-      userId,
-      'Only admin or manager can manage projects',
     );
 
     const workspaceMember = await this.prisma.workspaceMember.findUnique({
@@ -98,18 +79,7 @@ export class ProjectMembersService {
     userId: string,
     memberUserId: string,
   ): Promise<void> {
-    const project = await loadProjectAndAssertAccess(
-      this.prisma,
-      projectId,
-      userId,
-    );
-
-    await assertAgencyRole(
-      this.prisma,
-      project.workspaceId,
-      userId,
-      'Only admin or manager can manage projects',
-    );
+    await assertAgencyProjectAccess(this.prisma, projectId, userId);
 
     const membership = await this.prisma.projectMember.findUnique({
       where: {

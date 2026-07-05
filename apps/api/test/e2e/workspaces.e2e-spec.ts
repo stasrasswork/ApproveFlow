@@ -161,12 +161,29 @@ describeWithSeededApp('Workspaces (e2e)', (getContext) => {
       .expect(201);
 
     expect(response.body).toMatchObject({
-      role: WorkspaceRole.MEMBER,
-      user: {
-        email: 'invitee@test.local',
-        name: 'Invitee',
+      status: 'added',
+      member: {
+        role: WorkspaceRole.MEMBER,
+        user: {
+          email: 'invitee@test.local',
+          name: 'Invitee',
+        },
       },
     });
+  });
+
+  it('POST /workspaces/:id/members sends email invite for unknown user', async () => {
+    const { app } = getContext();
+    const adminToken = await loginAs(app, 'admin@test.local', SEED_PASSWORD);
+
+    const response = await request(app.getHttpServer())
+      .post(`/workspaces/${SEED_IDS.workspace}/members`)
+      .set(authHeader(adminToken))
+      .send({ email: 'new-invitee@test.local', role: WorkspaceRole.CLIENT_VIEW })
+      .expect(201);
+
+    expect(response.body.status).toBe('pending');
+    expect(response.body.message).toBeTruthy();
   });
 
   it('POST /workspaces/:id/members rejects admin role from manager', async () => {

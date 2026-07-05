@@ -1,9 +1,19 @@
+export { assertCanAccessTask, type TaskAccessContext } from './task-access.js';
 export { assertProjectAllowsTaskChanges } from './project-status.js';
 export {
+  assertAgencyProjectAccess,
   assertAssigneeInProject,
   assertProjectAccess,
   loadProjectAndAssertAccess,
+  MANAGE_PROJECTS_FORBIDDEN,
 } from './project-access.js';
+export {
+  ensureWorkspaceClientsInProject,
+  listClientsOutsideProject,
+  listProjectClientUserIds,
+  listProjectMemberUserIds,
+  type ClientOutsideProject,
+} from './client-project-access.js';
 export { normalizeEmail } from './normalize-email.js';
 export {
   isUniqueConstraintError,

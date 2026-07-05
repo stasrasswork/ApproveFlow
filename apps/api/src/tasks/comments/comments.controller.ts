@@ -6,22 +6,27 @@ import {
   HttpStatus,
   Param,
   Post,
-  UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   AuthUser,
   CurrentUser,
 } from '../../auth/current-user.decorator.js';
-import { JwtAuthGuard } from '../../auth/jwt-auth.guard.js';
 import { CreateCommentDto } from './dto/index.js';
 import { CommentView, CommentsService } from './comments.service.js';
 
-@UseGuards(JwtAuthGuard)
+@ApiTags('comments')
+@ApiBearerAuth()
 @Controller('tasks/:taskId/comments')
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
   @Get()
+  @ApiOperation({ summary: 'List comments on a task' })
   findByTask(
     @CurrentUser() user: AuthUser,
     @Param('taskId') taskId: string,
@@ -31,6 +36,7 @@ export class CommentsController {
 
   @HttpCode(HttpStatus.CREATED)
   @Post()
+  @ApiOperation({ summary: 'Add a comment to a task' })
   create(
     @CurrentUser() user: AuthUser,
     @Param('taskId') taskId: string,

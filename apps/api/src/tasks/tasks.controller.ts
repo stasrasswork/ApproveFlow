@@ -4,14 +4,17 @@ import {
   Get,
   Param,
   Patch,
-  UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { TaskStatus } from '../generated/prisma/client.js';
 import {
   AuthUser,
   CurrentUser,
 } from '../auth/current-user.decorator.js';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import {
   TransitionTaskDto,
   UpdateTaskDto,
@@ -25,12 +28,14 @@ import {
   type AllowedTransitionTarget,
 } from './tasks.service.js';
 
-@UseGuards(JwtAuthGuard)
+@ApiTags('tasks')
+@ApiBearerAuth()
 @Controller('tasks')
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get task by id' })
   findOne(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -39,6 +44,7 @@ export class TasksController {
   }
 
   @Get(':id/events')
+  @ApiOperation({ summary: 'List task status change events' })
   getEvents(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -47,6 +53,7 @@ export class TasksController {
   }
 
   @Get(':id/due-changes')
+  @ApiOperation({ summary: 'List task due date change history' })
   getDueChanges(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -55,6 +62,7 @@ export class TasksController {
   }
 
   @Get(':id/allowed-transitions')
+  @ApiOperation({ summary: 'Get allowed status transitions for current user' })
   getAllowedTransitions(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -63,6 +71,7 @@ export class TasksController {
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Update task fields' })
   update(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -72,6 +81,7 @@ export class TasksController {
   }
 
   @Patch(':id/status')
+  @ApiOperation({ summary: 'Transition task status' })
   transition(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -81,6 +91,7 @@ export class TasksController {
   }
 
   @Patch(':id/due')
+  @ApiOperation({ summary: 'Update task due date' })
   updateDue(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,

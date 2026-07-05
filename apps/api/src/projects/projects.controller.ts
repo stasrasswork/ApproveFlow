@@ -7,14 +7,18 @@ import {
   HttpStatus,
   Param,
   Patch,
-  UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Project } from '../generated/prisma/client.js';
 import {
   AuthUser,
   CurrentUser,
 } from '../auth/current-user.decorator.js';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import type { ClientOutsideProject } from '../common/index.js';
 import { UpdateProjectDto } from './dto/index.js';
 import {
   ProjectActivityItem,
@@ -22,12 +26,14 @@ import {
   ProjectsService,
 } from './projects.service.js';
 
-@UseGuards(JwtAuthGuard)
+@ApiTags('projects')
+@ApiBearerAuth()
 @Controller('projects')
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get project by id' })
   findOne(
     @CurrentUser() user: AuthUser,
     @Param('id') projectId: string,
@@ -35,7 +41,17 @@ export class ProjectsController {
     return this.projectsService.findOne(projectId, user.userId);
   }
 
+  @Get(':id/clients-outside')
+  @ApiOperation({ summary: 'Workspace clients not yet added to this project' })
+  getClientsOutside(
+    @CurrentUser() user: AuthUser,
+    @Param('id') projectId: string,
+  ): Promise<ClientOutsideProject[]> {
+    return this.projectsService.getClientsOutside(projectId, user.userId);
+  }
+
   @Patch(':id')
+  @ApiOperation({ summary: 'Update project' })
   update(
     @CurrentUser() user: AuthUser,
     @Param('id') projectId: string,
@@ -46,6 +62,7 @@ export class ProjectsController {
 
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete project' })
   delete(
     @CurrentUser() user: AuthUser,
     @Param('id') projectId: string,
@@ -54,6 +71,7 @@ export class ProjectsController {
   }
 
   @Get(':id/stats')
+  @ApiOperation({ summary: 'Project task aggregates' })
   getStats(
     @CurrentUser() user: AuthUser,
     @Param('id') projectId: string,
@@ -62,6 +80,7 @@ export class ProjectsController {
   }
 
   @Get(':id/activity')
+  @ApiOperation({ summary: 'Project activity feed' })
   getActivity(
     @CurrentUser() user: AuthUser,
     @Param('id') projectId: string,

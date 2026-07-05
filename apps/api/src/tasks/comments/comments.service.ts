@@ -1,33 +1,38 @@
 import { Injectable } from '@nestjs/common';
+import { Comment, WorkspaceRole } from '../../generated/prisma/client.js';
 import {
-  Comment,
-  WorkspaceRole,
-} from '../../generated/prisma/client.js';
-import {
-  userBriefSelect,
+  assertCanAccessTask,
+  assertProjectAllowsTaskChanges,
   loadWorkspaceRoleMap,
+  userBriefSelect,
   type UserBrief,
 } from '../../common/index.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CreateCommentDto } from './dto/index.js';
-import { TasksService } from '../tasks.service.js';
+import { TaskNotificationsService } from '../task-notifications.service.js';
 
 export type CommentView = Comment & {
   author: UserBrief;
   authorRole: WorkspaceRole;
 };
 
+function previewComment(body: string, maxLength = 120): string {
+  const trimmed = body.trim();
+  if (trimmed.length <= maxLength) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, maxLength - 1)}…`;
+}
+
 @Injectable()
 export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly tasksService: TasksService,
+    private readonly taskNotifications: TaskNotificationsService,
   ) {}
 
   async findByTask(taskId: string, userId: string): Promise<CommentView[]> {
-    await this.tasksService.assertCanAccessTask(taskId, userId);
-
-    const workspaceId = await this.getTaskWorkspaceId(taskId);
+    const { workspaceId } = await assertCanAccessTask(this.prisma, taskId, userId);
     const comments = await this.prisma.comment.findMany({
       where: { taskId },
       include: { author: { select: userBriefSelect } },
@@ -42,28 +47,52 @@ export class CommentsService {
     userId: string,
     dto: CreateCommentDto,
   ): Promise<CommentView> {
-    await this.tasksService.assertCanAccessTask(taskId, userId);
+    const { workspaceId, projectId } = await assertCanAccessTask(
+      this.prisma,
+      taskId,
+      userId,
+    );
 
-    const workspaceId = await this.getTaskWorkspaceId(taskId);
-    const comment = await this.prisma.comment.create({
-      data: {
-        taskId,
-        authorId: userId,
-        body: dto.body,
+    const task = await this.prisma.task.findUniqueOrThrow({
+      where: { id: taskId },
+      select: {
+        id: true,
+        title: true,
+        project: { select: { name: true } },
       },
-      include: { author: { select: userBriefSelect } },
+    });
+
+    await assertProjectAllowsTaskChanges(this.prisma, projectId);
+
+    const comment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.comment.create({
+        data: {
+          taskId,
+          authorId: userId,
+          body: dto.body,
+        },
+        include: { author: { select: userBriefSelect } },
+      });
+
+      await this.taskNotifications.notifyComment(
+        tx,
+        userId,
+        created.author,
+        {
+          taskId,
+          projectId,
+          workspaceId,
+          taskTitle: task.title,
+          projectName: task.project.name,
+        },
+        previewComment(dto.body),
+      );
+
+      return created;
     });
 
     const [view] = await this.attachAuthorRoles([comment], workspaceId);
     return view;
-  }
-
-  private async getTaskWorkspaceId(taskId: string): Promise<string> {
-    const task = await this.prisma.task.findUniqueOrThrow({
-      where: { id: taskId },
-      select: { project: { select: { workspaceId: true } } },
-    });
-    return task.project.workspaceId;
   }
 
   private async attachAuthorRoles(
