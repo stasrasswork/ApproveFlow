@@ -1,26 +1,27 @@
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { workspacesApi } from '../api/endpoints';
+import { authApi, workspacesApi } from '../api/endpoints';
 import type { WorkspaceRole } from '../api/types';
 import { useAuth } from '../auth/useAuth';
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
+import { MemberRemoveDialog } from '../components/MemberRemoveDialog';
+import { InviteMemberCard } from '../components/settings/InviteMemberCard';
+import { MembersTableCard } from '../components/settings/MembersTableCard';
+import { ProfileSettingsCard } from '../components/settings/ProfileSettingsCard';
+import { WorkspaceSettingsCard } from '../components/settings/WorkspaceSettingsCard';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Dropdown } from '../components/ui/Dropdown';
-import { ErrorAlert } from '../components/ui/ErrorAlert';
-import { Input, Field, FormStack, FormActions } from '../components/ui/Form';
+import { LoadingState } from '../components/ui/LoadingState';
+import { PageError } from '../components/ui/PageError';
 import { getApiErrorMessage } from '../lib/api-error';
 import { liveQueryOptions } from '../lib/constants';
 import { roleDropdownOptions } from '../lib/dropdown-options';
-import { userDisplayName } from '../lib/format';
+import { queryKeys } from '../lib/query-keys';
 import {
   canChangeMemberRoles,
   canDeleteWorkspace,
   canRemoveMembers,
   canUpdateWorkspace,
   isAgencyRole,
-  ROLE_LABELS,
 } from '../lib/roles';
 import { isValidSlug, SLUG_VALIDATION_MESSAGE } from '../lib/slug';
 
@@ -36,20 +37,33 @@ export function WorkspaceMembersPage() {
   const [workspaceSlug, setWorkspaceSlug] = useState('');
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [inviteDevLink, setInviteDevLink] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{
     userId: string;
     name: string;
   } | null>(null);
   const [confirmDeleteWorkspace, setConfirmDeleteWorkspace] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
 
-  const { data: workspace } = useQuery({
-    queryKey: ['workspace', workspaceId],
+  const {
+    data: workspace,
+    isError: workspaceError,
+    isLoading: workspaceLoading,
+  } = useQuery({
+    queryKey: queryKeys.workspace(workspaceId),
     queryFn: () => workspacesApi.get(workspaceId),
     enabled: Boolean(workspaceId),
   });
 
-  const { data: members = [], isLoading } = useQuery({
-    queryKey: ['workspace-members', workspaceId],
+  const {
+    data: members = [],
+    isLoading: membersLoading,
+    isError: membersError,
+  } = useQuery({
+    queryKey: queryKeys.workspaceMembers(workspaceId),
     queryFn: () => workspacesApi.members.list(workspaceId),
     enabled: Boolean(workspaceId),
     ...liveQueryOptions,
@@ -58,11 +72,26 @@ export function WorkspaceMembersPage() {
   const inviteMutation = useMutation({
     mutationFn: () =>
       workspacesApi.members.invite(workspaceId, email, inviteRole),
-    onSuccess: () => {
+    onSuccess: (result) => {
       setInviteError(null);
-      queryClient.invalidateQueries({
-        queryKey: ['workspace-members', workspaceId],
-      });
+      if (result.status === 'added') {
+        setInviteSuccess('Member added to workspace.');
+        setInviteDevLink(null);
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workspaceMembers(workspaceId),
+        });
+        setEmail('');
+        return;
+      }
+
+      setInviteSuccess(result.message);
+      if (result.inviteToken) {
+        setInviteDevLink(
+          `/register?invite=${result.inviteToken}&email=${encodeURIComponent(email)}`,
+        );
+      } else {
+        setInviteDevLink(null);
+      }
       setEmail('');
     },
     onError: (err) => {
@@ -80,7 +109,7 @@ export function WorkspaceMembersPage() {
     }) => workspacesApi.members.updateRole(workspaceId, userId, newRole),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ['workspace-members', workspaceId],
+        queryKey: queryKeys.workspaceMembers(workspaceId),
       });
     },
     onError: (err) => {
@@ -93,7 +122,7 @@ export function WorkspaceMembersPage() {
       workspacesApi.members.remove(workspaceId, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ['workspace-members', workspaceId],
+        queryKey: queryKeys.workspaceMembers(workspaceId),
       });
       setMemberToRemove(null);
     },
@@ -108,11 +137,24 @@ export function WorkspaceMembersPage() {
       workspacesApi.update(workspaceId, data),
     onSuccess: async () => {
       setSettingsError(null);
-      queryClient.invalidateQueries({ queryKey: ['workspace', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspace(workspaceId) });
       await refreshUser();
     },
     onError: (err) => {
       setSettingsError(getApiErrorMessage(err, 'Failed to update workspace'));
+    },
+  });
+
+  const profileMutation = useMutation({
+    mutationFn: (name: string) => authApi.updateProfile(name),
+    onSuccess: async () => {
+      setProfileError(null);
+      setProfileSuccess('Display name updated.');
+      await refreshUser();
+    },
+    onError: (err) => {
+      setProfileSuccess(null);
+      setProfileError(getApiErrorMessage(err, 'Failed to update name'));
     },
   });
 
@@ -134,6 +176,18 @@ export function WorkspaceMembersPage() {
     event.preventDefault();
     setInviteError(null);
     inviteMutation.mutate();
+  }
+
+  function handleProfileSubmit(event: FormEvent) {
+    event.preventDefault();
+    setProfileError(null);
+    setProfileSuccess(null);
+    const name = (profileName.trim() || user?.name)?.trim();
+    if (!name) {
+      setProfileError('Display name cannot be empty.');
+      return;
+    }
+    profileMutation.mutate(name);
   }
 
   function handleWorkspaceSettings(event: FormEvent) {
@@ -174,6 +228,15 @@ export function WorkspaceMembersPage() {
   const canDelete = role ? canDeleteWorkspace(role) : false;
 
   const displayName = workspace?.name ?? activeWorkspace?.name;
+  const roleOptions = roleDropdownOptions();
+
+  if (workspaceError) {
+    return <PageError message="Failed to load workspace settings." />;
+  }
+
+  if (workspaceLoading && !workspace) {
+    return <LoadingState label="Loading settings…" />;
+  }
 
   return (
     <div className="space-y-8">
@@ -186,25 +249,16 @@ export function WorkspaceMembersPage() {
         onConfirm={() => deleteWorkspaceMutation.mutate()}
         onCancel={() => setConfirmDeleteWorkspace(false)}
       />
-      <ConfirmDialog
-        open={memberToRemove !== null}
-        title="Remove from workspace?"
-        description={
-          memberToRemove ? (
-            <>
-              Remove <strong>{memberToRemove.name}</strong> from this workspace?
-              They will lose access to all projects in it.
-            </>
-          ) : null
-        }
-        confirmLabel="Remove member"
-        loading={removeMemberMutation.isPending}
+      <MemberRemoveDialog
+        scope="workspace"
+        member={memberToRemove}
+        isPending={removeMemberMutation.isPending}
+        onClose={() => setMemberToRemove(null)}
         onConfirm={() => {
           if (memberToRemove) {
             removeMemberMutation.mutate(memberToRemove.userId);
           }
         }}
-        onCancel={() => setMemberToRemove(null)}
       />
       <div>
         <Link
@@ -217,164 +271,70 @@ export function WorkspaceMembersPage() {
         <p className="text-slate-500">{displayName}</p>
       </div>
 
+      <ProfileSettingsCard
+        user={user}
+        profileError={profileError}
+        profileSuccess={profileSuccess}
+        isPending={profileMutation.isPending}
+        onProfileNameChange={setProfileName}
+        onSubmit={handleProfileSubmit}
+      />
+
       {canRename ? (
-        <Card title="Workspace settings" accent="emerald">
-          <form onSubmit={handleWorkspaceSettings}>
-            <FormStack>
-              <Field label="Workspace name" htmlFor="workspace-name">
-                <Input
-                  id="workspace-name"
-                  key={`name-${workspace?.name}`}
-                  defaultValue={workspace?.name ?? ''}
-                  onChange={(e) => setWorkspaceName(e.target.value)}
-                />
-              </Field>
-              <Field label="URL slug" htmlFor="workspace-slug">
-                <Input
-                  id="workspace-slug"
-                  key={`slug-${workspace?.slug}`}
-                  defaultValue={workspace?.slug ?? ''}
-                  onChange={(e) => setWorkspaceSlug(e.target.value)}
-                  spellCheck={false}
-                  placeholder="my-agency"
-                />
-              </Field>
-              {settingsError ? <ErrorAlert message={settingsError} /> : null}
-              <FormActions>
-                <Button
-                  type="submit"
-                  variant="secondary"
-                  disabled={updateWorkspaceMutation.isPending}
-                >
-                  Save changes
-                </Button>
-                {canDelete ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="text-rose-600 hover:text-rose-700"
-                    disabled={deleteWorkspaceMutation.isPending}
-                    onClick={() => setConfirmDeleteWorkspace(true)}
-                  >
-                    Delete workspace
-                  </Button>
-                ) : null}
-              </FormActions>
-            </FormStack>
-          </form>
-        </Card>
+        <WorkspaceSettingsCard
+          workspace={workspace}
+          settingsError={settingsError}
+          canDelete={canDelete}
+          updatePending={updateWorkspaceMutation.isPending}
+          deletePending={deleteWorkspaceMutation.isPending}
+          onWorkspaceNameChange={setWorkspaceName}
+          onWorkspaceSlugChange={setWorkspaceSlug}
+          onSubmit={handleWorkspaceSettings}
+          onDeleteClick={() => setConfirmDeleteWorkspace(true)}
+        />
       ) : null}
 
       {canManage ? (
-        <Card title="Invite member" accent="blue">
-          <p className="mb-4 text-sm text-slate-500">
-            User must already be registered. For clients, choose the Client
-            role, then add them to a project.
-          </p>
-          <form onSubmit={handleInvite}>
-            <FormStack>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Email" htmlFor="invite-email">
-                  <Input
-                    id="invite-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </Field>
-                <Field label="Role">
-                  <Dropdown
-                    value={inviteRole}
-                    onChange={(value) => setInviteRole(value as WorkspaceRole)}
-                    options={roleDropdownOptions()}
-                    compactTrigger
-                    fullWidth
-                  />
-                </Field>
-              </div>
-              {inviteError ? <ErrorAlert message={inviteError} /> : null}
-              <FormActions>
-                <Button type="submit" disabled={inviteMutation.isPending}>
-                  Send invite
-                </Button>
-              </FormActions>
-            </FormStack>
-          </form>
-        </Card>
+        <InviteMemberCard
+          email={email}
+          inviteRole={inviteRole}
+          inviteError={inviteError}
+          inviteSuccess={inviteSuccess}
+          roleOptions={roleOptions}
+          isPending={inviteMutation.isPending}
+          onEmailChange={setEmail}
+          onInviteRoleChange={setInviteRole}
+          onSubmit={handleInvite}
+          devLinkContent={
+            inviteDevLink ? (
+              <p className="rounded-xl bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900 ring-1 ring-amber-100">
+                Dev mode: share{' '}
+                <Link
+                  to={inviteDevLink}
+                  className="font-semibold text-brand-600 hover:text-brand-700"
+                >
+                  registration link
+                </Link>
+              </p>
+            ) : null
+          }
+        />
       ) : null}
 
-      <Card title="Members" accent="violet" className="overflow-visible">
-        {isLoading ? (
-          <p className="text-sm text-slate-500">Loading…</p>
-        ) : (
-          <div className="overflow-x-auto overflow-y-visible">
-            <table className="w-full min-w-[520px] text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  <th className="pb-3 pr-4">Name</th>
-                  <th className="pb-3 pr-4">Email</th>
-                  <th className="pb-3 pr-4 w-[200px]">Role</th>
-                  {canRemove ? <th className="pb-3 w-24" /> : null}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {members.map((member) => (
-                  <tr key={member.id}>
-                    <td className="py-3 pr-4 font-medium text-slate-900">
-                      {userDisplayName(member.user)}
-                    </td>
-                    <td className="py-3 pr-4 text-slate-500">
-                      {member.user.email}
-                    </td>
-                    <td className="py-3 pr-4">
-                      {canEditRoles ? (
-                        <Dropdown
-                          value={member.role}
-                          onChange={(value) =>
-                            updateRoleMutation.mutate({
-                              userId: member.userId,
-                              newRole: value as WorkspaceRole,
-                            })
-                          }
-                          options={roleDropdownOptions()}
-                          compactTrigger
-                          size="sm"
-                          fullWidth
-                        />
-                      ) : (
-                        <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
-                          {ROLE_LABELS[member.role]}
-                        </span>
-                      )}
-                    </td>
-                    {canRemove ? (
-                      <td className="py-3 text-right">
-                        {member.userId !== user?.id ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="text-rose-600 hover:text-rose-700"
-                            disabled={removeMemberMutation.isPending}
-                            onClick={() =>
-                              setMemberToRemove({
-                                userId: member.userId,
-                                name: userDisplayName(member.user),
-                              })
-                            }
-                          >
-                            Remove
-                          </Button>
-                        ) : null}
-                      </td>
-                    ) : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      <MembersTableCard
+        members={members}
+        membersLoading={membersLoading}
+        membersError={membersError}
+        currentUserId={user?.id}
+        canEditRoles={canEditRoles}
+        canRemove={canRemove}
+        removePending={removeMemberMutation.isPending}
+        roleOptions={roleOptions}
+        onRoleChange={(userId, newRole) =>
+          updateRoleMutation.mutate({ userId, newRole })
+        }
+        onRemoveMember={setMemberToRemove}
+      />
     </div>
   );
 }

@@ -2,8 +2,11 @@ import { apiFetch } from './client';
 import type {
   AllowedTransitions,
   AuthTokens,
+  ClientOutsideProject,
   Comment,
+  InviteWorkspaceResult,
   MeResult,
+  Notification,
   Project,
   ProjectActivityItem,
   ProjectMember,
@@ -26,16 +29,22 @@ export const authApi = {
       body: JSON.stringify({ email, password }),
     }),
 
-  register: (email: string, password: string, name?: string) =>
+  register: (email: string, password: string, name?: string, inviteToken?: string) =>
     apiFetch<{ id: string; email: string; name: string | null; message: string }>(
       '/auth/register',
       {
         method: 'POST',
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify({ email, password, name, inviteToken }),
       },
     ),
 
   me: () => apiFetch<MeResult>('/auth/me'),
+
+  updateProfile: (name: string) =>
+    apiFetch<MeResult>('/auth/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
 
   forgotPassword: (email: string) =>
     apiFetch<{ message: string; resetToken?: string }>('/auth/forgot-password', {
@@ -73,7 +82,7 @@ export const workspacesApi = {
       apiFetch<WorkspaceMember[]>(`/workspaces/${workspaceId}/members`),
 
     invite: (workspaceId: string, email: string, role: WorkspaceRole) =>
-      apiFetch<WorkspaceMember>(`/workspaces/${workspaceId}/members`, {
+      apiFetch<InviteWorkspaceResult>(`/workspaces/${workspaceId}/members`, {
         method: 'POST',
         body: JSON.stringify({ email, role }),
       }),
@@ -124,6 +133,9 @@ export const projectsApi = {
   activity: (id: string) =>
     apiFetch<ProjectActivityItem[]>(`/projects/${id}/activity`),
 
+  clientsOutside: (id: string) =>
+    apiFetch<ClientOutsideProject[]>(`/projects/${id}/clients-outside`),
+
   members: {
     list: (projectId: string) =>
       apiFetch<ProjectMember[]>(`/projects/${projectId}/members`),
@@ -152,7 +164,6 @@ export const tasksApi = {
       description?: string;
       assigneeId?: string;
       dueAt?: string;
-      sprintLabel?: string;
     },
   ) =>
     apiFetch<TaskView>(`/projects/${projectId}/tasks`, {
@@ -168,7 +179,6 @@ export const tasksApi = {
       title?: string;
       description?: string;
       assigneeId?: string | null;
-      sprintLabel?: string;
     },
   ) =>
     apiFetch<TaskView>(`/tasks/${id}`, {
@@ -206,4 +216,19 @@ export const commentsApi = {
       method: 'POST',
       body: JSON.stringify({ body }),
     }),
+};
+
+export const notificationsApi = {
+  list: () => apiFetch<Notification[]>('/notifications'),
+
+  unreadCount: () =>
+    apiFetch<{ count: number }>('/notifications/unread-count').then(
+      (result) => result.count,
+    ),
+
+  markRead: (id: string) =>
+    apiFetch<void>(`/notifications/${id}/read`, { method: 'PATCH' }),
+
+  markAllRead: () =>
+    apiFetch<void>('/notifications/read-all', { method: 'PATCH' }),
 };

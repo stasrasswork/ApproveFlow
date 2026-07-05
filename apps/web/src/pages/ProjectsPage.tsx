@@ -6,10 +6,14 @@ import { useAuth } from '../auth/useAuth';
 import { ProjectStatusBadge } from '../components/ui/ProjectStatusBadge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { EmptyState } from '../components/ui/EmptyState';
 import { ErrorAlert } from '../components/ui/ErrorAlert';
+import { LoadingState } from '../components/ui/LoadingState';
+import { PageError } from '../components/ui/PageError';
 import { Input, Textarea, Field, FormStack, FormActions } from '../components/ui/Form';
 import { getApiErrorMessage } from '../lib/api-error';
 import { liveQueryOptions } from '../lib/constants';
+import { queryKeys } from '../lib/query-keys';
 import { isAgencyRole } from '../lib/roles';
 
 export function ProjectsPage() {
@@ -22,8 +26,12 @@ export function ProjectsPage() {
   const [description, setDescription] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const { data: projects = [], isLoading } = useQuery({
-    queryKey: ['projects', workspaceId],
+  const {
+    data: projects = [],
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: queryKeys.projects(workspaceId),
     queryFn: () => projectsApi.list(workspaceId),
     enabled: Boolean(workspaceId),
     ...liveQueryOptions,
@@ -34,7 +42,7 @@ export function ProjectsPage() {
       projectsApi.create(workspaceId, name, description || undefined),
     onSuccess: () => {
       setCreateError(null);
-      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects(workspaceId) });
       setShowCreate(false);
       setName('');
       setDescription('');
@@ -51,6 +59,10 @@ export function ProjectsPage() {
   }
 
   const canCreate = role ? isAgencyRole(role) : false;
+
+  if (isError) {
+    return <PageError message="Failed to load projects." />;
+  }
 
   return (
     <div className="space-y-8">
@@ -105,11 +117,9 @@ export function ProjectsPage() {
         ) : null}
 
         {isLoading ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <LoadingState />
         ) : projects.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center text-sm text-slate-500">
-            No projects yet. Create one to get started.
-          </p>
+          <EmptyState>No projects yet. Create one to get started.</EmptyState>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {projects.map((project) => (

@@ -1,39 +1,34 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { commentsApi, projectsApi, tasksApi, workspacesApi } from '../api/endpoints';
-import type { AllowedTransitions, TaskStatus } from '../api/types';
+import type { AllowedTransitions } from '../api/types';
 import { useAuth } from '../auth/useAuth';
+import { TaskActionsSection } from '../components/task/TaskActionsSection';
+import { TaskCommentsSection } from '../components/task/TaskCommentsSection';
+import { TaskDetailsSidebar } from '../components/task/TaskDetailsSidebar';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import {
-  DueDateDisplay,
-  DueDatePickerFields,
-  DueDatePickerPanel,
-} from '../components/ui/DueDatePicker';
-import { AuthorLine } from '../components/ui/RoleBadge';
-import { Dropdown } from '../components/ui/Dropdown';
-import { ErrorAlert } from '../components/ui/ErrorAlert';
-import { TitleInput, Textarea, Field, FormStack, FormActions, InlineFormRow } from '../components/ui/Form';
+import { LoadingState } from '../components/ui/LoadingState';
+import { PageError } from '../components/ui/PageError';
+import { TitleInput, Textarea, InlineFormRow } from '../components/ui/Form';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { useTaskMutations } from '../hooks/useTaskMutations';
 import { getApiErrorMessage } from '../lib/api-error';
 import { liveQueryOptions } from '../lib/constants';
+import { queryKeys } from '../lib/query-keys';
 import { workspaceMemberDropdownOptions } from '../lib/dropdown-options';
 import { ensureAssigneeInProject } from '../lib/ensure-assignee';
 import {
   dateInputToIso,
-  formatDate,
-  formatDateTime,
   toDateInputValue,
-  userDisplayName,
 } from '../lib/format';
 import {
   assigneeNeedsProjectAccess,
   filterAssignableMembers,
 } from '../lib/members';
 import { isAgencyRole } from '../lib/roles';
-import { getEventTypeLabel } from '../lib/task-events';
-import { getBlockingHint, STATUS_LABELS } from '../lib/task-status';
+import { getBlockingHint } from '../lib/task-status';
 
 export function TaskPage() {
   const { workspaceId = '', projectId = '', taskId = '' } = useParams();
@@ -57,129 +52,76 @@ export function TaskPage() {
   const [quickDueDate, setQuickDueDate] = useState('');
   const [quickDueReason, setQuickDueReason] = useState('');
 
-  const { data: task } = useQuery({
-    queryKey: ['task', taskId],
+  const { data: task, isLoading: taskLoading, isError: taskError } = useQuery({
+    queryKey: queryKeys.task(taskId),
     queryFn: () => tasksApi.get(taskId),
     enabled: Boolean(taskId),
     ...liveQueryOptions,
   });
 
   const { data: transitions } = useQuery({
-    queryKey: ['task-transitions', taskId],
+    queryKey: queryKeys.taskTransitions(taskId),
     queryFn: () => tasksApi.allowedTransitions(taskId),
     enabled: Boolean(taskId),
     ...liveQueryOptions,
   });
 
   const { data: comments = [] } = useQuery({
-    queryKey: ['comments', taskId],
+    queryKey: queryKeys.comments(taskId),
     queryFn: () => commentsApi.list(taskId),
     enabled: Boolean(taskId),
     ...liveQueryOptions,
   });
 
   const { data: events = [] } = useQuery({
-    queryKey: ['task-events', taskId],
+    queryKey: queryKeys.taskEvents(taskId),
     queryFn: () => tasksApi.events(taskId),
     enabled: Boolean(taskId),
     ...liveQueryOptions,
   });
 
   const { data: dueChanges = [] } = useQuery({
-    queryKey: ['task-due-changes', taskId],
+    queryKey: queryKeys.taskDueChanges(taskId),
     queryFn: () => tasksApi.dueChanges(taskId),
     enabled: Boolean(taskId),
     ...liveQueryOptions,
   });
 
   const { data: workspaceMembers = [] } = useQuery({
-    queryKey: ['workspace-members', workspaceId],
+    queryKey: queryKeys.workspaceMembers(workspaceId),
     queryFn: () => workspacesApi.members.list(workspaceId),
     enabled: Boolean(workspaceId) && Boolean(role && isAgencyRole(role)),
   });
 
   const { data: projectMembers = [] } = useQuery({
-    queryKey: ['project-members', projectId],
+    queryKey: queryKeys.projectMembers(projectId),
     queryFn: () => projectsApi.members.list(projectId),
     enabled: Boolean(projectId) && Boolean(role && isAgencyRole(role)),
   });
 
-  const projectMemberUserIds = new Set(projectMembers.map((member) => member.userId));
+  const projectMemberUserIds = useMemo(
+    () => new Set(projectMembers.map((member) => member.userId)),
+    [projectMembers],
+  );
   const showAssigneeAccessHint = assigneeNeedsProjectAccess(
     isEditing ? editAssigneeId : null,
     projectMemberUserIds,
   );
 
-  const invalidateTask = () => {
-    queryClient.invalidateQueries({ queryKey: ['task', taskId] });
-    queryClient.invalidateQueries({ queryKey: ['task-transitions', taskId] });
-    queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
-    queryClient.invalidateQueries({ queryKey: ['project-stats', projectId] });
-    queryClient.invalidateQueries({ queryKey: ['project-activity', projectId] });
-    queryClient.invalidateQueries({ queryKey: ['task-events', taskId] });
-    queryClient.invalidateQueries({ queryKey: ['comments', taskId] });
-  };
+  const agency = role ? isAgencyRole(role) : false;
 
-  const transitionMutation = useMutation({
-    mutationFn: ({
-      to,
-      comment,
-    }: {
-      to: TaskStatus;
-      comment?: string;
-    }) => tasksApi.transition(taskId, to, comment),
-    onSuccess: () => {
-      setPendingTransition(null);
-      setCommentBody('');
-      setTransitionError(null);
-      setShowDueDateForm(false);
-      invalidateTask();
-    },
-    onError: (err) => {
-      setTransitionError(
-        getApiErrorMessage(err, 'Failed to change status'),
-      );
-    },
+  const { data: clientsOutside = [] } = useQuery({
+    queryKey: queryKeys.clientsOutside(projectId),
+    queryFn: () => projectsApi.clientsOutside(projectId),
+    enabled:
+      Boolean(projectId) &&
+      agency &&
+      (task?.status === 'INTERNAL_REVIEW' ||
+        transitions?.targets.some((t) => t.to === 'CLIENT_HANDOFF')),
   });
 
-  const commentMutation = useMutation({
-    mutationFn: (body: string) => commentsApi.create(taskId, body),
-    onSuccess: () => {
-      setNewComment('');
-      queryClient.invalidateQueries({ queryKey: ['comments', taskId] });
-      queryClient.invalidateQueries({
-        queryKey: ['project-activity', projectId],
-      });
-    },
-    onError: (err) => {
-      setTransitionError(getApiErrorMessage(err, 'Failed to post comment'));
-    },
-  });
-
-  const updateDueMutation = useMutation({
-    mutationFn: ({
-      dueDate,
-      reason,
-    }: {
-      dueDate: string | null;
-      reason?: string;
-    }) =>
-      tasksApi.updateDue(
-        taskId,
-        dueDate ? dateInputToIso(dueDate) : null,
-        reason,
-      ),
-    onSuccess: () => {
-      setShowDueDateForm(false);
-      setTransitionError(null);
-      invalidateTask();
-      queryClient.invalidateQueries({ queryKey: ['task-due-changes', taskId] });
-      queryClient.invalidateQueries({ queryKey: ['project-activity', projectId] });
-    },
-    onError: (err) => {
-      setTransitionError(getApiErrorMessage(err, 'Failed to update due date'));
-    },
-  });
+  const { transitionMutation, commentMutation, updateDueMutation, invalidateTask } =
+    useTaskMutations(taskId, projectId, setTransitionError);
 
   const saveEditMutation = useMutation({
     mutationFn: async () => {
@@ -201,10 +143,7 @@ export function TaskPage() {
       });
 
       const currentDue = toDateInputValue(task!.dueAt);
-      if (
-        task!.status === 'BRIEF' &&
-        (editDueDate !== currentDue || editDueReason.trim())
-      ) {
+      if (editDueDate !== currentDue || editDueReason.trim()) {
         await tasksApi.updateDue(
           taskId,
           editDueDate ? dateInputToIso(editDueDate) : null,
@@ -215,27 +154,27 @@ export function TaskPage() {
     onSuccess: () => {
       setIsEditing(false);
       invalidateTask();
-      queryClient.invalidateQueries({ queryKey: ['task-due-changes', taskId] });
-      queryClient.invalidateQueries({ queryKey: ['project-members', projectId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taskDueChanges(taskId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projectMembers(projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificationCount() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
     },
     onError: (err) => {
       setTransitionError(getApiErrorMessage(err, 'Failed to save changes'));
     },
   });
 
-  if (!task) {
-    return (
-      <div className="flex items-center gap-3 text-sm text-slate-500">
-        <span className="h-5 w-5 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" />
-        Loading…
-      </div>
-    );
+  if (taskLoading) {
+    return <LoadingState />;
+  }
+
+  if (taskError || !task) {
+    return <PageError message="Failed to load task." />;
   }
 
   const blocking = getBlockingHint(task.status);
-  const agency = role ? isAgencyRole(role) : false;
   const showTransitions = (transitions?.targets.length ?? 0) > 0;
-  const canEditDueDate = agency && task.status === 'BRIEF';
+  const canEditDueDate = agency;
   const canSetDueDate = canEditDueDate && !isEditing;
   const showActionsCard = showTransitions || canSetDueDate;
 
@@ -274,7 +213,16 @@ export function TaskPage() {
       return;
     }
 
-    transitionMutation.mutate({ to: target.to });
+    transitionMutation.mutate(
+      { to: target.to },
+      {
+        onSuccess: () => {
+          setPendingTransition(null);
+          setCommentBody('');
+          setShowDueDateForm(false);
+        },
+      },
+    );
   }
 
   function handleTransitionWithComment(event: FormEvent) {
@@ -282,10 +230,19 @@ export function TaskPage() {
     if (!pendingTransition || !commentBody.trim()) {
       return;
     }
-    transitionMutation.mutate({
-      to: pendingTransition.to,
-      comment: commentBody.trim(),
-    });
+    transitionMutation.mutate(
+      {
+        to: pendingTransition.to,
+        comment: commentBody.trim(),
+      },
+      {
+        onSuccess: () => {
+          setPendingTransition(null);
+          setCommentBody('');
+          setShowDueDateForm(false);
+        },
+      },
+    );
   }
 
   function handleAddComment(event: FormEvent) {
@@ -293,7 +250,9 @@ export function TaskPage() {
     if (!newComment.trim()) {
       return;
     }
-    commentMutation.mutate(newComment.trim());
+    commentMutation.mutate(newComment.trim(), {
+      onSuccess: () => setNewComment(''),
+    });
   }
 
   function startEditing() {
@@ -374,253 +333,75 @@ export function TaskPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
-            <Card title="Description" accent="blue">
-              {isEditing && agency ? (
-                <Textarea
-                  id="description"
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                />
-              ) : (
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-                  {task.description || 'No description'}
-                </p>
-              )}
-            </Card>
-
-          {showActionsCard ? (
-            <Card title="Actions" accent="violet">
-              {transitionError ? (
-                <ErrorAlert message={transitionError} className="mb-3" />
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                {showTransitions
-                  ? transitions!.targets.map((target) => (
-                      <Button
-                        key={target.to}
-                        variant={target.buttonVariant}
-                        disabled={
-                          transitionMutation.isPending || updateDueMutation.isPending
-                        }
-                        onClick={() => handleTransition(target)}
-                      >
-                        {target.label}
-                      </Button>
-                    ))
-                  : null}
-                {canSetDueDate && !showDueDateForm ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={transitionMutation.isPending || updateDueMutation.isPending}
-                    onClick={openDueDateForm}
-                  >
-                    {task.dueAt ? 'Change due date' : 'Set due date'}
-                  </Button>
-                ) : null}
-              </div>
-              {showDueDateForm ? (
-                <DueDatePickerPanel
-                  dueDate={quickDueDate}
-                  onDueDateChange={setQuickDueDate}
-                  reason={quickDueReason}
-                  onReasonChange={setQuickDueReason}
-                  onSubmit={handleQuickDueSubmit}
-                  onCancel={cancelDueDateForm}
-                  isPending={updateDueMutation.isPending}
-                />
-              ) : null}
-            </Card>
-          ) : null}
-
-          {pendingTransition ? (
-            <Card title="Comment required" accent="rose">
-              <form onSubmit={handleTransitionWithComment}>
-                <FormStack>
-                  <Field label="Comment">
-                    <Textarea
-                      value={commentBody}
-                      onChange={(e) => setCommentBody(e.target.value)}
-                      placeholder="Describe what needs to be changed"
-                      required
-                    />
-                  </Field>
-                  <FormActions>
-                    <Button type="submit" disabled={transitionMutation.isPending}>
-                      {pendingTransition.label}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => {
-                        setPendingTransition(null);
-                        setCommentBody('');
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </FormActions>
-                </FormStack>
-              </form>
-            </Card>
-          ) : null}
-
-          <Card title="Comments" accent="amber">
-            <ul className="mb-4 space-y-3">
-              {comments.length === 0 ? (
-                <li className="text-sm text-slate-500">No comments yet.</li>
-              ) : (
-                comments.map((comment) => (
-                  <li
-                    key={comment.id}
-                    className="rounded-xl border border-slate-200/70 bg-slate-50/80 px-4 py-3"
-                  >
-                    <div>
-                      <AuthorLine
-                        author={comment.author}
-                        role={comment.authorRole}
-                        timestamp={formatDateTime(comment.createdAt)}
-                      />
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
-                        {comment.body}
-                      </p>
-                    </div>
-                  </li>
-                ))
-              )}
-            </ul>
-            <form onSubmit={handleAddComment}>
-              <FormStack>
-                <Field label="Add comment">
-                  <Textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Write a comment…"
-                  />
-                </Field>
-                <FormActions>
-                  <Button
-                    type="submit"
-                    variant="secondary"
-                    disabled={commentMutation.isPending}
-                  >
-                    Post comment
-                  </Button>
-                </FormActions>
-              </FormStack>
-            </form>
+        <div className="space-y-6 lg:col-span-2">
+          <Card title="Description" accent="blue">
+            {isEditing && agency ? (
+              <Textarea
+                id="description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+              />
+            ) : (
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                {task.description || 'No description'}
+              </p>
+            )}
           </Card>
+
+          <TaskActionsSection
+            showActionsCard={showActionsCard}
+            transitionError={transitionError}
+            clientsOutside={clientsOutside}
+            showTransitions={showTransitions}
+            transitions={transitions}
+            canSetDueDate={canSetDueDate}
+            showDueDateForm={showDueDateForm}
+            taskDueAt={task.dueAt}
+            quickDueDate={quickDueDate}
+            quickDueReason={quickDueReason}
+            pendingTransition={pendingTransition}
+            commentBody={commentBody}
+            transitionPending={transitionMutation.isPending}
+            updateDuePending={updateDueMutation.isPending}
+            onTransition={handleTransition}
+            onOpenDueDateForm={openDueDateForm}
+            onQuickDueDateChange={setQuickDueDate}
+            onQuickDueReasonChange={setQuickDueReason}
+            onQuickDueSubmit={handleQuickDueSubmit}
+            onCancelDueDateForm={cancelDueDateForm}
+            onCommentBodyChange={setCommentBody}
+            onTransitionWithComment={handleTransitionWithComment}
+            onCancelPendingTransition={() => {
+              setPendingTransition(null);
+              setCommentBody('');
+            }}
+          />
+
+          <TaskCommentsSection
+            comments={comments}
+            newComment={newComment}
+            onNewCommentChange={setNewComment}
+            onSubmit={handleAddComment}
+            isPending={commentMutation.isPending}
+          />
         </div>
 
-        <div className="space-y-6">
-          <Card title="Details" accent="emerald">
-            <FormStack>
-              <Field label="Assignee">
-                {isEditing && agency ? (
-                  <>
-                    <Dropdown
-                      value={editAssigneeId}
-                      onChange={setEditAssigneeId}
-                      options={assigneeOptions}
-                      compactTrigger
-                      fullWidth
-                    />
-                    {showAssigneeAccessHint ? (
-                      <p className="mt-1.5 text-xs text-amber-700">
-                        Assignee is not on this project yet — they will be added
-                        automatically when you save.
-                      </p>
-                    ) : null}
-                  </>
-                ) : (
-                  <p className="text-sm font-medium text-slate-800">
-                    {userDisplayName(task.assignee) || 'Unassigned'}
-                  </p>
-                )}
-              </Field>
-              <Field label="Created by">
-                <p className="text-sm font-medium text-slate-800">
-                  {userDisplayName(task.creator)}
-                </p>
-              </Field>
-              <Field label="Due date">
-                {isEditing && agency && canEditDueDate ? (
-                  <DueDatePickerFields
-                    dueDate={editDueDate}
-                    onDueDateChange={setEditDueDate}
-                    reason={editDueReason}
-                    onReasonChange={setEditDueReason}
-                    dateId="due"
-                    reasonId="due-reason"
-                  />
-                ) : (
-                  <DueDateDisplay dueAt={task.dueAt} />
-                )}
-              </Field>
-            </FormStack>
-          </Card>
-
-          <Card title="Status history" accent="violet">
-            <ul className="space-y-3 text-sm">
-              {events.length === 0 ? (
-                <li className="text-slate-500">No history yet.</li>
-              ) : (
-                events.map((event) => {
-                  const eventLabel = getEventTypeLabel(
-                    event.type,
-                    event.approvalType,
-                  );
-                  return (
-                  <li
-                    key={event.id}
-                    className="relative border-l-2 border-brand-200 pl-4"
-                  >
-                    <p className="font-medium text-slate-800">
-                      {STATUS_LABELS[event.fromStatus]} →{' '}
-                      {STATUS_LABELS[event.toStatus]}
-                    </p>
-                    {eventLabel ? (
-                      <p className="mt-0.5 text-xs font-medium text-brand-700">
-                        {eventLabel}
-                      </p>
-                    ) : null}
-                    {event.comment ? (
-                      <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                        {event.comment}
-                      </p>
-                    ) : null}
-                    <p className="mt-1 text-xs text-slate-500">
-                      {userDisplayName(event.actor)} ·{' '}
-                      {formatDateTime(event.createdAt)}
-                    </p>
-                  </li>
-                  );
-                })
-              )}
-            </ul>
-          </Card>
-
-          {dueChanges.length > 0 ? (
-            <Card title="Due date history" accent="amber">
-              <ul className="space-y-3 text-sm">
-                {dueChanges.map((change) => (
-                  <li key={change.id}>
-                    <p className="font-medium">
-                      {formatDate(change.oldDueAt)} →{' '}
-                      {formatDate(change.newDueAt)}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {userDisplayName(change.changedBy)} ·{' '}
-                      {formatDateTime(change.createdAt)}
-                      {change.reason ? ` · ${change.reason}` : ''}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          ) : null}
-        </div>
+        <TaskDetailsSidebar
+          task={task}
+          isEditing={isEditing}
+          agency={agency}
+          canEditDueDate={canEditDueDate}
+          editAssigneeId={editAssigneeId}
+          editDueDate={editDueDate}
+          editDueReason={editDueReason}
+          assigneeOptions={assigneeOptions}
+          showAssigneeAccessHint={showAssigneeAccessHint}
+          events={events}
+          dueChanges={dueChanges}
+          onEditAssigneeChange={setEditAssigneeId}
+          onEditDueDateChange={setEditDueDate}
+          onEditDueReasonChange={setEditDueReason}
+        />
       </div>
     </div>
   );

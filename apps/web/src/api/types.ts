@@ -57,6 +57,25 @@ export type WorkspaceMember = {
   user: UserBrief;
 };
 
+export type ClientOutsideProject = UserBrief & { userId: string };
+
+export type InviteWorkspaceResult =
+  | { status: 'added'; member: WorkspaceMember }
+  | { status: 'pending'; message: string; inviteToken?: string };
+
+export type Notification = {
+  id: string;
+  userId: string;
+  type: 'TASK_CLIENT_HANDOFF' | 'TASK_UPDATE' | 'WORKSPACE_INVITE';
+  title: string;
+  body: string;
+  taskId: string | null;
+  projectId: string | null;
+  workspaceId?: string | null;
+  read: boolean;
+  createdAt: string;
+};
+
 export type Project = {
   id: string;
   workspaceId: string;
@@ -129,7 +148,6 @@ type TaskBrief = {
   assigneeId: string | null;
   creatorId: string;
   dueAt: string | null;
-  sprintLabel: string | null;
   createdAt: string;
   updatedAt: string;
 };

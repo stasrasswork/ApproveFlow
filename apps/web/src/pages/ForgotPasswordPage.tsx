@@ -1,10 +1,12 @@
 import { type FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { authApi } from '../api/endpoints';
+import { AuthFormLayout } from '../components/auth/AuthFormLayout';
 import { getApiErrorMessage } from '../lib/api-error';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { ErrorAlert } from '../components/ui/ErrorAlert';
+import { SuccessAlert } from '../components/ui/SuccessAlert';
 import { Input, Field, FormStack, FormActions } from '../components/ui/Form';
 
 export function ForgotPasswordPage() {
@@ -36,57 +38,45 @@ export function ForgotPasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
       <Card className="w-full max-w-md p-8">
-        <div className="mb-6">
-          <Link
-            to="/login"
-            className="text-sm font-medium text-brand-600 hover:text-brand-700"
-          >
-            ← Back to sign in
-          </Link>
-          <h1 className="mt-4 text-2xl font-bold">Reset password</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Enter your email and we will send reset instructions if an account
-            exists.
-          </p>
-        </div>
+        <AuthFormLayout
+          title="Reset password"
+          subtitle="Enter your email and we will send reset instructions if an account exists."
+          backLink={{ to: '/login', label: '← Back to sign in' }}
+        >
+          <form onSubmit={handleSubmit}>
+            <FormStack>
+              <Field label="Email" htmlFor="email">
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </Field>
 
-        <form onSubmit={handleSubmit}>
-          <FormStack>
-            <Field label="Email" htmlFor="email">
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </Field>
+              <ErrorAlert message={error} />
+              <SuccessAlert message={message} />
+              {devToken ? (
+                <p className="rounded-xl bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900 ring-1 ring-amber-100">
+                  Dev mode: use this link to reset —{' '}
+                  <Link
+                    to={`/reset-password?token=${devToken}`}
+                    className="font-semibold text-brand-600 hover:text-brand-700"
+                  >
+                    set new password
+                  </Link>
+                </p>
+              ) : null}
 
-            <ErrorAlert message={error} />
-            {message ? (
-              <p className="rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm text-emerald-800 ring-1 ring-emerald-100">
-                {message}
-              </p>
-            ) : null}
-            {devToken ? (
-              <p className="rounded-xl bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900 ring-1 ring-amber-100">
-                Dev mode: use this link to reset —{' '}
-                <Link
-                  to={`/reset-password?token=${devToken}`}
-                  className="font-semibold text-brand-600 hover:text-brand-700"
-                >
-                  set new password
-                </Link>
-              </p>
-            ) : null}
-
-            <FormActions>
-              <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting ? 'Sending…' : 'Send reset link'}
-              </Button>
-            </FormActions>
-          </FormStack>
-        </form>
+              <FormActions>
+                <Button type="submit" className="w-full" disabled={submitting}>
+                  {submitting ? 'Sending…' : 'Send reset link'}
+                </Button>
+              </FormActions>
+            </FormStack>
+          </form>
+        </AuthFormLayout>
       </Card>
     </div>
   );

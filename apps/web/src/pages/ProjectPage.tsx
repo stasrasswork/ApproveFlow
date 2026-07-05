@@ -1,33 +1,32 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { projectsApi, tasksApi, workspacesApi } from '../api/endpoints';
-import type { ProjectStatus, TaskView } from '../api/types';
+import { projectsApi, tasksApi } from '../api/endpoints';
+import type { ProjectStatus } from '../api/types';
 import { useAuth } from '../auth/useAuth';
+import { MemberRemoveDialog } from '../components/MemberRemoveDialog';
 import { ProjectActivityItem } from '../components/ProjectActivityItem';
+import { ProjectMembersSection } from '../components/project/ProjectMembersSection';
 import { ProjectStatsOverview } from '../components/ProjectStatsOverview';
+import { ProjectTasksSection } from '../components/project/ProjectTasksSection';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { DatePickerInput } from '../components/ui/DatePickerInput';
 import { Dropdown } from '../components/ui/Dropdown';
-import { Input, Textarea, Field, FormStack, FormActions } from '../components/ui/Form';
+import { Input, Textarea, Field, FormActions } from '../components/ui/Form';
+import { LoadingState } from '../components/ui/LoadingState';
+import { PageError } from '../components/ui/PageError';
 import { ProjectStatusBadge } from '../components/ui/ProjectStatusBadge';
-import { RoleBadge } from '../components/ui/RoleBadge';
-import { StatusBadge } from '../components/ui/StatusBadge';
 import { ErrorAlert } from '../components/ui/ErrorAlert';
+import { useProjectMembers } from '../hooks/useProjectMembers';
 import { ACTIVITY_PAGE_SIZE, liveQueryOptions } from '../lib/constants';
 import { getApiErrorMessage } from '../lib/api-error';
 import { workspaceMemberDropdownOptions } from '../lib/dropdown-options';
 import { ensureAssigneeInProject } from '../lib/ensure-assignee';
-import { userDisplayName, formatDate, formatDaysUntil, dateInputToIso } from '../lib/format';
-import {
-  assigneeNeedsProjectAccess,
-  filterAssignableMembers,
-} from '../lib/members';
-import { isProjectOperational } from '../lib/project-status';
-import { isAgencyRole } from '../lib/roles';
-import { getBlockingHint, PROJECT_STATUS_OPTIONS } from '../lib/task-status';
+import { dateInputToIso } from '../lib/format';
+import { assigneeNeedsProjectAccess } from '../lib/members';
+import { isProjectOperational, PROJECT_STATUS_OPTIONS } from '../lib/project-status';
+import { queryKeys } from '../lib/query-keys';
 
 export function ProjectPage() {
   const { workspaceId = '', projectId = '' } = useParams();
@@ -44,83 +43,60 @@ export function ProjectPage() {
   const [taskDescription, setTaskDescription] = useState('');
   const [taskDueDate, setTaskDueDate] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
-  const [memberUserId, setMemberUserId] = useState('');
   const [activityLimit, setActivityLimit] = useState(ACTIVITY_PAGE_SIZE);
   const [confirmDeleteProject, setConfirmDeleteProject] = useState(false);
-  const [memberToRemove, setMemberToRemove] = useState<{
-    userId: string;
-    name: string;
-  } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const { data: project } = useQuery({
-    queryKey: ['project', projectId],
+  const members = useProjectMembers(projectId, workspaceId, role);
+
+  const {
+    data: project,
+    isLoading: projectLoading,
+    isError: projectError,
+  } = useQuery({
+    queryKey: queryKeys.project(projectId),
     queryFn: () => projectsApi.get(projectId),
     enabled: Boolean(projectId),
     ...liveQueryOptions,
   });
 
   const { data: stats } = useQuery({
-    queryKey: ['project-stats', projectId],
+    queryKey: queryKeys.projectStats(projectId),
     queryFn: () => projectsApi.stats(projectId),
     enabled: Boolean(projectId),
     ...liveQueryOptions,
   });
 
   const { data: activity = [] } = useQuery({
-    queryKey: ['project-activity', projectId],
+    queryKey: queryKeys.projectActivity(projectId),
     queryFn: () => projectsApi.activity(projectId),
     enabled: Boolean(projectId),
     ...liveQueryOptions,
   });
 
-  const { data: tasks = [], isLoading: tasksLoading } = useQuery({
-    queryKey: ['tasks', projectId],
+  const {
+    data: tasks = [],
+    isLoading: tasksLoading,
+    isError: tasksError,
+  } = useQuery({
+    queryKey: queryKeys.tasks(projectId),
     queryFn: () => tasksApi.list(projectId),
     enabled: Boolean(projectId),
     ...liveQueryOptions,
   });
 
-  const { data: projectMembers = [] } = useQuery({
-    queryKey: ['project-members', projectId],
-    queryFn: () => projectsApi.members.list(projectId),
-    enabled: Boolean(projectId) && Boolean(role && isAgencyRole(role)),
-  });
-
-  const { data: workspaceMembers = [] } = useQuery({
-    queryKey: ['workspace-members', workspaceId],
-    queryFn: () => workspacesApi.members.list(workspaceId),
-    enabled: Boolean(workspaceId) && Boolean(role && isAgencyRole(role)),
-  });
-
-  const assignableMembers = useMemo(
-    () => filterAssignableMembers(workspaceMembers),
-    [workspaceMembers],
-  );
-
-  const roleByUserId = useMemo(
-    () => new Map(workspaceMembers.map((member) => [member.userId, member.role])),
-    [workspaceMembers],
-  );
-
-  const availableForProject = useMemo(() => {
-    const inProject = new Set(projectMembers.map((m) => m.userId));
-    return workspaceMembers.filter((m) => !inProject.has(m.userId));
-  }, [workspaceMembers, projectMembers]);
-
-  const projectMemberUserIds = useMemo(
-    () => new Set(projectMembers.map((member) => member.userId)),
-    [projectMembers],
-  );
-
   const showAssigneeAccessHint = assigneeNeedsProjectAccess(
     assigneeId,
-    projectMemberUserIds,
+    members.projectMemberUserIds,
   );
 
   const createTaskMutation = useMutation({
     mutationFn: async () => {
-      await ensureAssigneeInProject(projectId, assigneeId, projectMemberUserIds);
+      await ensureAssigneeInProject(
+        projectId,
+        assigneeId,
+        members.projectMemberUserIds,
+      );
       return tasksApi.create(projectId, {
         title: taskTitle,
         description: taskDescription || undefined,
@@ -130,8 +106,8 @@ export function ProjectPage() {
     },
     onSuccess: () => {
       setActionError(null);
-      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
-      queryClient.invalidateQueries({ queryKey: ['project-stats', projectId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks(projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projectStats(projectId) });
       setShowCreateTask(false);
       setTaskTitle('');
       setTaskDescription('');
@@ -143,34 +119,10 @@ export function ProjectPage() {
     },
   });
 
-  const addMemberMutation = useMutation({
-    mutationFn: (userId: string) => projectsApi.members.add(projectId, userId),
-    onSuccess: () => {
-      setActionError(null);
-      queryClient.invalidateQueries({ queryKey: ['project-members', projectId] });
-      setMemberUserId('');
-    },
-    onError: (err) => {
-      setActionError(getApiErrorMessage(err, 'Failed to add member'));
-    },
-  });
-
-  const removeMemberMutation = useMutation({
-    mutationFn: (userId: string) => projectsApi.members.remove(projectId, userId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['project-members', projectId] });
-      setMemberToRemove(null);
-    },
-    onError: (err) => {
-      setActionError(getApiErrorMessage(err, 'Failed to remove member'));
-      setMemberToRemove(null);
-    },
-  });
-
   const deleteProjectMutation = useMutation({
     mutationFn: () => projectsApi.delete(projectId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects(workspaceId) });
       setConfirmDeleteProject(false);
       navigate(`/w/${workspaceId}/projects`, { replace: true });
     },
@@ -187,8 +139,8 @@ export function ProjectPage() {
       status?: ProjectStatus;
     }) => projectsApi.update(projectId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-      queryClient.invalidateQueries({ queryKey: ['projects', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.project(projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects(workspaceId) });
       setIsEditingProject(false);
       setActionError(null);
     },
@@ -229,14 +181,19 @@ export function ProjectPage() {
     });
   }
 
-  const canManage = role ? isAgencyRole(role) : false;
+  const canManage = members.canManage;
   const canCreateTask =
     canManage && project ? isProjectOperational(project.status) : false;
   const visibleActivity = activity.slice(0, activityLimit);
   const hasMoreActivity = activity.length > activityLimit;
+  const combinedError = actionError ?? members.actionError;
 
-  function handleDeleteProject() {
-    setConfirmDeleteProject(true);
+  if (projectError) {
+    return <PageError message="Failed to load project." />;
+  }
+
+  if (projectLoading && !project) {
+    return <LoadingState label="Loading project…" />;
   }
 
   return (
@@ -250,25 +207,15 @@ export function ProjectPage() {
         onConfirm={() => deleteProjectMutation.mutate()}
         onCancel={() => setConfirmDeleteProject(false)}
       />
-      <ConfirmDialog
-        open={memberToRemove !== null}
-        title="Remove from project?"
-        description={
-          memberToRemove ? (
-            <>
-              Remove <strong>{memberToRemove.name}</strong> from this project?
-              They will lose access to its tasks unless added again.
-            </>
-          ) : null
-        }
-        confirmLabel="Remove member"
-        loading={removeMemberMutation.isPending}
+      <MemberRemoveDialog
+        member={members.memberToRemove}
+        isPending={members.removeMemberMutation.isPending}
+        onClose={() => members.setMemberToRemove(null)}
         onConfirm={() => {
-          if (memberToRemove) {
-            removeMemberMutation.mutate(memberToRemove.userId);
+          if (members.memberToRemove) {
+            members.removeMemberMutation.mutate(members.memberToRemove.userId);
           }
         }}
-        onCancel={() => setMemberToRemove(null)}
       />
       {project?.status === 'PAUSED' ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -280,7 +227,7 @@ export function ProjectPage() {
           This project is completed. New tasks and status changes are disabled.
         </p>
       ) : null}
-      <ErrorAlert message={actionError} />
+      <ErrorAlert message={combinedError} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <Link
@@ -365,7 +312,7 @@ export function ProjectPage() {
                 variant="ghost"
                 className="text-rose-600 hover:text-rose-700"
                 disabled={deleteProjectMutation.isPending}
-                onClick={handleDeleteProject}
+                onClick={() => setConfirmDeleteProject(true)}
               >
                 Delete project
               </Button>
@@ -378,119 +325,31 @@ export function ProjectPage() {
         <div className={`space-y-6 ${canManage ? 'lg:col-span-2' : ''}`}>
           {stats ? <ProjectStatsOverview stats={stats} /> : null}
 
-          <Card
-            title="Tasks"
-            accent="blue"
-            actions={
-              role && canCreateTask ? (
-                <Button
-                  type="button"
-                  onClick={() => setShowCreateTask((v) => !v)}
-                >
-                  {showCreateTask ? 'Cancel' : '+ New task'}
-                </Button>
-              ) : undefined
-            }
-          >
-            {showCreateTask ? (
-              <div className="mb-5 rounded-xl border border-slate-200/70 bg-slate-50/50 p-4">
-                <form onSubmit={handleCreateTask}>
-                  <FormStack>
-                    <Field label="Title" htmlFor="task-title">
-                      <Input
-                        id="task-title"
-                        value={taskTitle}
-                        onChange={(e) => setTaskTitle(e.target.value)}
-                        required
-                      />
-                    </Field>
-                    <Field label="Description" htmlFor="task-desc">
-                      <Textarea
-                        id="task-desc"
-                        value={taskDescription}
-                        onChange={(e) => setTaskDescription(e.target.value)}
-                      />
-                    </Field>
-                    <Field label="Assignee" htmlFor="assignee">
-                      <Dropdown
-                        value={assigneeId}
-                        onChange={setAssigneeId}
-                        options={workspaceMemberDropdownOptions(assignableMembers, {
-                          includeEmpty: true,
-                          emptyLabel: 'Unassigned',
-                        })}
-                        compactTrigger
-                        fullWidth
-                      />
-                      {showAssigneeAccessHint ? (
-                        <p className="mt-1.5 text-xs text-amber-700">
-                          Assignee is not on this project yet — they will be
-                          added automatically when you create the task.
-                        </p>
-                      ) : null}
-                    </Field>
-                    <Field label="Due date" htmlFor="task-due">
-                      <DatePickerInput
-                        id="task-due"
-                        value={taskDueDate}
-                        onChange={setTaskDueDate}
-                        placeholder="Optional"
-                      />
-                    </Field>
-                    <FormActions>
-                      <Button
-                        type="submit"
-                        disabled={createTaskMutation.isPending}
-                      >
-                        Create task
-                      </Button>
-                    </FormActions>
-                  </FormStack>
-                </form>
-              </div>
-            ) : null}
-
-            {tasksLoading ? (
-              <p className="text-sm text-slate-500">Loading…</p>
-            ) : tasks.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center text-sm text-slate-500">
-                No tasks yet. Create one to get started.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {tasks.map((task: TaskView) => {
-                  const blocking = getBlockingHint(task.status);
-                  const dueRelative = formatDaysUntil(task.dueAt);
-                  return (
-                    <li key={task.id}>
-                      <Link
-                        to={`/w/${workspaceId}/projects/${projectId}/tasks/${task.id}`}
-                        className="group block rounded-xl border border-slate-200/70 bg-white px-4 py-3.5 transition hover:border-brand-200 hover:bg-brand-50/40 hover:shadow-sm"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-slate-900 group-hover:text-brand-700">
-                            {task.title}
-                          </span>
-                          <StatusBadge status={task.status} />
-                        </div>
-                        <p className="mt-1.5 text-xs text-slate-500">
-                          {task.assignee
-                            ? `Assignee: ${userDisplayName(task.assignee)}`
-                            : 'Unassigned'}
-                          {task.dueAt
-                            ? ` · Due ${formatDate(task.dueAt)}${
-                                dueRelative ? ` (${dueRelative})` : ''
-                              }`
-                            : ''}
-                          {blocking ? ` · ${blocking}` : ''}
-                        </p>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </Card>
+          <ProjectTasksSection
+            workspaceId={workspaceId}
+            projectId={projectId}
+            tasks={tasks}
+            tasksLoading={tasksLoading}
+            tasksError={tasksError}
+            canCreateTask={canCreateTask}
+            showCreateTask={showCreateTask}
+            taskTitle={taskTitle}
+            taskDescription={taskDescription}
+            taskDueDate={taskDueDate}
+            assigneeId={assigneeId}
+            assigneeOptions={workspaceMemberDropdownOptions(members.assignableMembers, {
+              includeEmpty: true,
+              emptyLabel: 'Unassigned',
+            })}
+            showAssigneeAccessHint={showAssigneeAccessHint}
+            createPending={createTaskMutation.isPending}
+            onToggleCreateTask={() => setShowCreateTask((v) => !v)}
+            onTaskTitleChange={setTaskTitle}
+            onTaskDescriptionChange={setTaskDescription}
+            onTaskDueDateChange={setTaskDueDate}
+            onAssigneeIdChange={setAssigneeId}
+            onCreateTask={handleCreateTask}
+          />
 
           <Card title="Activity feed" accent="amber">
             {activity.length === 0 ? (
@@ -526,70 +385,22 @@ export function ProjectPage() {
         </div>
 
         {canManage ? (
-          <Card title="Project members" accent="emerald">
-            <ul className="mb-4 space-y-2">
-              {projectMembers.map((member) => {
-                const memberRole = roleByUserId.get(member.userId);
-                return (
-                <li
-                  key={member.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/70 bg-slate-50/50 px-3.5 py-2.5 text-sm"
-                >
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <p className="truncate font-medium text-slate-800">
-                      {userDisplayName(member.user)}
-                    </p>
-                    <p className="truncate text-xs text-slate-500">
-                      {member.user.email}
-                    </p>
-                    {memberRole ? (
-                      <div>
-                        <RoleBadge role={memberRole} />
-                      </div>
-                    ) : null}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="shrink-0 self-center text-rose-600 hover:text-rose-700"
-                    disabled={removeMemberMutation.isPending}
-                    onClick={() =>
-                      setMemberToRemove({
-                        userId: member.userId,
-                        name: userDisplayName(member.user),
-                      })
-                    }
-                  >
-                    Remove
-                  </Button>
-                </li>
-                );
-              })}
-            </ul>
-            {availableForProject.length > 0 ? (
-              <div className="space-y-4 border-t border-slate-100 pt-5">
-                <Field label="Add from workspace">
-                  <Dropdown
-                    value={memberUserId}
-                    onChange={setMemberUserId}
-                    placeholder="Select user"
-                    options={workspaceMemberDropdownOptions(availableForProject)}
-                    compactTrigger
-                    fullWidth
-                  />
-                </Field>
-                <FormActions>
-                  <Button
-                    variant="secondary"
-                    disabled={!memberUserId || addMemberMutation.isPending}
-                    onClick={() => addMemberMutation.mutate(memberUserId)}
-                  >
-                    Add member
-                  </Button>
-                </FormActions>
-              </div>
-            ) : null}
-          </Card>
+          <ProjectMembersSection
+            projectMembers={members.projectMembers}
+            roleByUserId={members.roleByUserId}
+            availableForProject={members.availableForProject}
+            memberUserId={members.memberUserId}
+            addPending={members.addMemberMutation.isPending}
+            removePending={members.removeMemberMutation.isPending}
+            onMemberUserIdChange={members.setMemberUserId}
+            onAddMember={() =>
+              members.addMemberMutation.mutate(members.memberUserId)
+            }
+            onRemoveMember={members.setMemberToRemove}
+            memberDropdownOptions={workspaceMemberDropdownOptions(
+              members.availableForProject,
+            )}
+          />
         ) : null}
       </div>
     </div>

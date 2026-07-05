@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
+import { AuthFormLayout } from '../components/auth/AuthFormLayout';
 import { TaskWorkflowSteps } from '../components/TaskWorkflowSteps';
 import { getApiErrorMessage } from '../lib/api-error';
 import { Button } from '../components/ui/Button';
@@ -71,67 +72,69 @@ export function LoginPage() {
 
       <div className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="glass-panel w-full max-w-md p-8">
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-slate-900">Welcome back</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Sign in to your workspace
-            </p>
-            <div className="mt-5 lg:hidden">
-              <TaskWorkflowSteps variant="light" />
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit}>
-            <FormStack>
-              <Field label="Email" htmlFor="email">
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </Field>
-              <Field label="Password" htmlFor="password">
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </Field>
-
-              <p className="text-right">
+          <AuthFormLayout
+            title="Welcome back"
+            subtitle="Sign in to your workspace"
+            headingAs="h2"
+            headerExtra={
+              <div className="mt-5 lg:hidden">
+                <TaskWorkflowSteps variant="light" />
+              </div>
+            }
+            footer={
+              <>
+                No account?{' '}
                 <Link
-                  to="/forgot-password"
-                  className="text-sm font-medium text-brand-600 hover:text-brand-700"
+                  to="/register"
+                  className="font-semibold text-brand-600 hover:text-brand-700"
                 >
-                  Forgot password?
+                  Create one
                 </Link>
-              </p>
+              </>
+            }
+          >
+            <form onSubmit={handleSubmit}>
+              <FormStack>
+                <Field label="Email" htmlFor="email">
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </Field>
+                <Field label="Password" htmlFor="password">
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </Field>
 
-              <ErrorAlert message={error} />
+                <p className="text-right">
+                  <Link
+                    to="/forgot-password"
+                    className="text-sm font-medium text-brand-600 hover:text-brand-700"
+                  >
+                    Forgot password?
+                  </Link>
+                </p>
 
-              <FormActions>
-                <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting ? 'Signing in…' : 'Sign in'}
-                </Button>
-              </FormActions>
-            </FormStack>
-          </form>
+                <ErrorAlert message={error} />
 
-          <p className="mt-6 text-center text-sm text-slate-500">
-            No account?{' '}
-            <Link
-              to="/register"
-              className="font-semibold text-brand-600 hover:text-brand-700"
-            >
-              Create one
-            </Link>
-          </p>
+                <FormActions>
+                  <Button type="submit" className="w-full" disabled={submitting}>
+                    {submitting ? 'Signing in…' : 'Sign in'}
+                  </Button>
+                </FormActions>
+              </FormStack>
+            </form>
+          </AuthFormLayout>
         </div>
       </div>
     </div>
