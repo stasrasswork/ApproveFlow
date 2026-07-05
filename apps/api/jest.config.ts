@@ -16,6 +16,7 @@ const config: Config = {
   },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@approveflow/shared$': '<rootDir>/../../../packages/shared/src/index.ts',
   },
   testEnvironment: 'node',
   collectCoverageFrom: ['**/*.(t|j)s'],
