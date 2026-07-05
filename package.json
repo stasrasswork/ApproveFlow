@@ -2,7 +2,8 @@
   "name": "approveflow",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "dependencies": {
     "@nestjs/platform-express": "11.1.21",
@@ -13,7 +14,8 @@
     "dev:api": "npm run start:dev -w api",
     "dev:web": "npm run dev -w web",
     "dev": "npm run dev:api & npm run dev:web",
-    "build": "npm run build:api && npm run build:web",
+    "build": "npm run build:shared && npm run build:api && npm run build:web",
+    "build:shared": "npm run build -w @approveflow/shared",
     "build:api": "npm run build -w api",
     "build:web": "npm run build -w web",
     "lint": "npm run lint -w api && npm run lint -w web",
