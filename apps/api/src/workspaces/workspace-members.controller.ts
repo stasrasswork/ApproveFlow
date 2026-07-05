@@ -8,23 +8,28 @@ import {
   Param,
   Patch,
   Post,
-  UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   AuthUser,
   CurrentUser,
 } from '../auth/current-user.decorator.js';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import {
   InviteWorkspaceMemberDto,
   UpdateWorkspaceMemberDto,
 } from './dto/index.js';
 import {
+  InviteWorkspaceResult,
   WorkspaceMemberWithUser,
   WorkspaceMembersService,
 } from './workspace-members.service.js';
 
-@UseGuards(JwtAuthGuard)
+@ApiTags('workspace-members')
+@ApiBearerAuth()
 @Controller('workspaces/:workspaceId/members')
 export class WorkspaceMembersController {
   constructor(
@@ -32,6 +37,7 @@ export class WorkspaceMembersController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'List workspace members' })
   list(
     @CurrentUser() user: AuthUser,
     @Param('workspaceId') workspaceId: string,
@@ -41,15 +47,17 @@ export class WorkspaceMembersController {
 
   @HttpCode(HttpStatus.CREATED)
   @Post()
+  @ApiOperation({ summary: 'Invite or add a workspace member' })
   invite(
     @CurrentUser() user: AuthUser,
     @Param('workspaceId') workspaceId: string,
     @Body() dto: InviteWorkspaceMemberDto,
-  ): Promise<WorkspaceMemberWithUser> {
+  ): Promise<InviteWorkspaceResult> {
     return this.workspaceMembersService.invite(workspaceId, user.userId, dto);
   }
 
   @Patch(':userId')
+  @ApiOperation({ summary: 'Update member role' })
   updateRole(
     @CurrentUser() user: AuthUser,
     @Param('workspaceId') workspaceId: string,
@@ -66,6 +74,7 @@ export class WorkspaceMembersController {
 
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':userId')
+  @ApiOperation({ summary: 'Remove member from workspace' })
   remove(
     @CurrentUser() user: AuthUser,
     @Param('workspaceId') workspaceId: string,

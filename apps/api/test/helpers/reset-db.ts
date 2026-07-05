@@ -2,6 +2,8 @@ import type { PrismaService } from '../../src/prisma/prisma.service.js';
 
 export async function resetDb(prisma: PrismaService): Promise<void> {
   await prisma.$transaction([
+    prisma.notification.deleteMany(),
+    prisma.workspaceInvite.deleteMany(),
     prisma.taskEvent.deleteMany(),
     prisma.taskDueChange.deleteMany(),
     prisma.comment.deleteMany(),

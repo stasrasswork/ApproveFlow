@@ -18,6 +18,11 @@ import {
   userBriefSelect,
   type UserBrief,
 } from '../common/index.js';
+import {
+  WorkspaceInvitesService,
+  type InviteWorkspaceResult,
+} from '../invites/workspace-invites.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   InviteWorkspaceMemberDto,
@@ -28,9 +33,15 @@ export type WorkspaceMemberWithUser = WorkspaceMember & {
   user: UserBrief;
 };
 
+export type { InviteWorkspaceResult };
+
 @Injectable()
 export class WorkspaceMembersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly workspaceInvites: WorkspaceInvitesService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async list(
     workspaceId: string,
@@ -52,7 +63,7 @@ export class WorkspaceMembersService {
     workspaceId: string,
     userId: string,
     dto: InviteWorkspaceMemberDto,
-  ): Promise<WorkspaceMemberWithUser> {
+  ): Promise<InviteWorkspaceResult> {
     await assertWorkspaceExists(this.prisma, workspaceId);
 
     const actorRole = await assertAgencyRole(
@@ -73,8 +84,17 @@ export class WorkspaceMembersService {
     });
 
     if (!targetUser) {
-      throw new NotFoundException(
-        'User not found. Ask them to register before inviting.',
+      const workspace = await this.prisma.workspace.findUniqueOrThrow({
+        where: { id: workspaceId },
+        select: { name: true },
+      });
+
+      return this.workspaceInvites.createEmailInvite(
+        workspaceId,
+        userId,
+        email,
+        dto.role,
+        workspace.name,
       );
     }
 
@@ -83,7 +103,7 @@ export class WorkspaceMembersService {
     }
 
     try {
-      return await this.prisma.workspaceMember.create({
+      const member = await this.prisma.workspaceMember.create({
         data: {
           workspaceId,
           userId: targetUser.id,
@@ -93,6 +113,16 @@ export class WorkspaceMembersService {
           user: { select: userBriefSelect },
         },
       });
+      const workspace = await this.prisma.workspace.findUniqueOrThrow({
+        where: { id: workspaceId },
+        select: { name: true },
+      });
+      await this.notifications.notifyWorkspaceInvite(this.prisma, {
+        userId: targetUser.id,
+        workspaceId,
+        workspaceName: workspace.name,
+      });
+      return { status: 'added', member };
     } catch (error) {
       rethrowUniqueAsConflict(
         error,

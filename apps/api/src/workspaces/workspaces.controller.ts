@@ -8,31 +8,37 @@ import {
   Param,
   Patch,
   Post,
-  UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Workspace } from '../generated/prisma/client.js';
 import {
   AuthUser,
   CurrentUser,
 } from '../auth/current-user.decorator.js';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { CreateWorkspaceDto, UpdateWorkspaceDto } from './dto/index.js';
 import {
   WorkspaceWithRole,
   WorkspacesService,
 } from './workspaces.service.js';
 
-@UseGuards(JwtAuthGuard)
+@ApiTags('workspaces')
+@ApiBearerAuth()
 @Controller('workspaces')
 export class WorkspacesController {
   constructor(private readonly workspacesService: WorkspacesService) {}
 
   @Get()
+  @ApiOperation({ summary: 'List workspaces for current user' })
   findAll(@CurrentUser() user: AuthUser): Promise<WorkspaceWithRole[]> {
     return this.workspacesService.findAll(user.userId);
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get workspace by id' })
   findOne(
     @CurrentUser() user: AuthUser,
     @Param('id') workspaceId: string,
@@ -42,6 +48,7 @@ export class WorkspacesController {
 
   @HttpCode(HttpStatus.CREATED)
   @Post()
+  @ApiOperation({ summary: 'Create a workspace' })
   create(
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateWorkspaceDto,
@@ -50,6 +57,7 @@ export class WorkspacesController {
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Update workspace name or slug' })
   update(
     @CurrentUser() user: AuthUser,
     @Param('id') workspaceId: string,
@@ -60,6 +68,7 @@ export class WorkspacesController {
 
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete workspace' })
   delete(
     @CurrentUser() user: AuthUser,
     @Param('id') workspaceId: string,

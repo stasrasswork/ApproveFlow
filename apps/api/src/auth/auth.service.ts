@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -8,7 +9,9 @@ import { createHash, randomBytes } from 'node:crypto';
 import { hash, verify } from 'argon2';
 import { WorkspaceRole } from '../generated/prisma/client.js';
 import { userBriefSelect, normalizeEmail } from '../common/index.js';
+import { MailService } from '../mail/mail.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { WorkspaceInvitesService } from '../invites/workspace-invites.service.js';
 import {
   ForgotPasswordDto,
   LoginDto,
@@ -66,6 +69,8 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly mail: MailService,
+    private readonly workspaceInvites: WorkspaceInvitesService,
   ) {}
 
   async me(userId: string): Promise<MeResult> {
@@ -139,11 +144,44 @@ export class AuthService {
       },
     });
 
+    if (registerDto.inviteToken) {
+      await this.workspaceInvites.acceptInviteToken(
+        registerDto.inviteToken,
+        user.id,
+      );
+      return {
+        ...this.toSafeUser(user),
+        message: 'Account created and workspace invite accepted.',
+      };
+    }
+
     return {
       ...this.toSafeUser(user),
       message:
         'Account created. Ask a workspace admin to invite you before using tasks.',
     };
+  }
+
+  async acceptInvite(userId: string, token: string): Promise<MeResult> {
+    await this.workspaceInvites.acceptInviteToken(token, userId);
+    return this.me(userId);
+  }
+
+  async updateProfile(
+    userId: string,
+    name: string,
+  ): Promise<MeResult> {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new BadRequestException('Name cannot be empty');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { name: trimmed },
+    });
+
+    return this.me(userId);
   }
 
   async forgotPassword(
@@ -176,7 +214,14 @@ export class AuthService {
       },
     });
 
-    if (process.env.NODE_ENV !== 'production') {
+    const resetUrl = this.mail.appUrl(`/reset-password?token=${rawToken}`);
+    const sent = await this.mail.send({
+      to: user.email,
+      subject: 'Reset your ApproveFlow password',
+      text: `Use this link to reset your password (valid for 1 hour):\n${resetUrl}`,
+    });
+
+    if (!sent || process.env.NODE_ENV !== 'production') {
       return { message, resetToken: rawToken };
     }
 

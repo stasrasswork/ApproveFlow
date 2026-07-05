@@ -1,15 +1,16 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from '../auth/auth.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { CommentsController } from './comments/comments.controller.js';
 import { CommentsService } from './comments/comments.service.js';
 import { ProjectTasksController } from './project-tasks.controller.js';
+import { TaskNotificationsService } from './task-notifications.service.js';
 import { TasksController } from './tasks.controller.js';
 import { TasksService } from './tasks.service.js';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, NotificationsModule],
   controllers: [ProjectTasksController, TasksController, CommentsController],
-  providers: [TasksService, CommentsService],
+  providers: [TasksService, CommentsService, TaskNotificationsService],
 })
 export class TasksModule {}

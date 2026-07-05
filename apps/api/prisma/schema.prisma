@@ -44,6 +44,12 @@ enum ClientApprovalType {
   CHANGES_REQUESTED
 }
 
+enum NotificationType {
+  TASK_CLIENT_HANDOFF
+  TASK_UPDATE
+  WORKSPACE_INVITE
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -60,6 +66,9 @@ model User {
   taskEvents           TaskEvent[]
   taskDueChanges       TaskDueChange[]
   passwordResetTokens  PasswordResetToken[]
+  notifications        Notification[]
+  workspaceInvitesSent WorkspaceInvite[]    @relation("InvitedBy")
+  acceptedInvites      WorkspaceInvite[]    @relation("AcceptedBy")
 
   @@map("users")
 }
@@ -73,6 +82,7 @@ model Workspace {
 
   members  WorkspaceMember[]
   projects Project[]
+  invites  WorkspaceInvite[]
 
   @@map("workspaces")
 }
@@ -209,4 +219,44 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+model WorkspaceInvite {
+  id          String        @id @default(cuid())
+  workspaceId String        @map("workspace_id")
+  email       String
+  role        WorkspaceRole
+  tokenHash   String        @unique @map("token_hash")
+  invitedById String        @map("invited_by_id")
+  expiresAt   DateTime      @map("expires_at")
+  acceptedAt  DateTime?     @map("accepted_at")
+  acceptedById String?      @map("accepted_by_id")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User      @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  acceptedBy User?     @relation("AcceptedBy", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, email])
+  @@index([email])
+  @@map("workspace_invites")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String           @map("user_id")
+  workspaceId String?          @map("workspace_id")
+  type        NotificationType
+  title       String
+  body        String
+  taskId      String?          @map("task_id")
+  projectId   String?          @map("project_id")
+  read        Boolean          @default(false)
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt])
+  @@index([workspaceId])
+  @@map("notifications")
 }

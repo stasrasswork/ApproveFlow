@@ -15,14 +15,17 @@ import {
 import {
   assertAssigneeInProject,
   assertAgencyRole,
+  assertCanAccessTask as assertTaskAccessById,
   assertProjectAccess,
   assertProjectAllowsTaskChanges,
   buildTaskListWhere,
-  getWorkspaceRole,
+  ensureWorkspaceClientsInProject,
+  listProjectClientUserIds,
   loadProjectAndAssertAccess,
   userBriefSelect,
   type UserBrief,
 } from '../common/index.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   CreateTaskDto,
@@ -37,6 +40,10 @@ import {
   TransitionValidationError,
   type AllowedTransitionTarget,
 } from './domain/task-transition.js';
+import {
+  TaskNotificationsService,
+  type TaskNotificationContext,
+} from './task-notifications.service.js';
 
 type TaskWithProject = Task & {
   project: { id: string; workspaceId: string };
@@ -64,7 +71,11 @@ export type { AllowedTransitionTarget };
 
 @Injectable()
 export class TasksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+    private readonly taskNotifications: TaskNotificationsService,
+  ) {}
 
   async getEvents(taskId: string, userId: string): Promise<TaskEventView[]> {
     const task = await this.loadTask(taskId);
@@ -134,7 +145,7 @@ export class TasksService {
       );
     }
 
-    return this.prisma.task.create({
+    const created = await this.prisma.task.create({
       data: {
         projectId,
         title: dto.title,
@@ -142,22 +153,45 @@ export class TasksService {
         assigneeId: dto.assigneeId,
         creatorId: userId,
         dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
-        sprintLabel: dto.sprintLabel,
         status: TaskStatus.BRIEF,
       },
       include: taskViewInclude,
     });
+
+    const [actor, project] = await Promise.all([
+      this.taskNotifications.loadActor(this.prisma, userId),
+      this.prisma.project.findUnique({
+        where: { id: projectId },
+        select: { name: true },
+      }),
+    ]);
+
+    if (project) {
+      await this.taskNotifications.notifyCreated(
+        this.prisma,
+        userId,
+        actor,
+        this.buildNotifyContext(created.id, projectId, workspaceId, created.title, project.name),
+      );
+    }
+
+    return created;
   }
 
   async findOne(taskId: string, userId: string): Promise<TaskView> {
-    const task = await this.loadTask(taskId);
+    const task = await this.loadTaskView(taskId);
     await this.assertTaskAccess(task, userId);
-    return this.getTaskView(taskId);
+    const { project, ...view } = task;
+    void project;
+    return view;
   }
 
-  async assertCanAccessTask(taskId: string, userId: string): Promise<void> {
-    const task = await this.loadTask(taskId);
-    await this.assertTaskAccess(task, userId);
+  async assertCanAccessTask(
+    taskId: string,
+    userId: string,
+  ): Promise<string> {
+    const context = await assertTaskAccessById(this.prisma, taskId, userId);
+    return context.workspaceId;
   }
 
   async transition(
@@ -205,6 +239,20 @@ export class TasksService {
         });
       }
 
+      let clientUserIds: string[] = [];
+      if (dto.to === TaskStatus.CLIENT_HANDOFF) {
+        await ensureWorkspaceClientsInProject(
+          tx,
+          task.project.id,
+          task.project.workspaceId,
+        );
+        clientUserIds = await listProjectClientUserIds(
+          tx,
+          task.project.id,
+          task.project.workspaceId,
+        );
+      }
+
       await tx.taskEvent.create({
         data: {
           taskId,
@@ -221,6 +269,39 @@ export class TasksService {
         where: { id: taskId },
         data: { status: dto.to },
       });
+
+      const project = await tx.project.findUniqueOrThrow({
+        where: { id: task.project.id },
+        select: { name: true, workspaceId: true },
+      });
+      const actor = await this.taskNotifications.loadActor(tx, userId);
+      const notifyContext = this.buildNotifyContext(
+        taskId,
+        task.project.id,
+        project.workspaceId,
+        task.title,
+        project.name,
+      );
+
+      await this.taskNotifications.notifyStatusChanged(
+        tx,
+        userId,
+        actor,
+        notifyContext,
+        fromStatus,
+        dto.to,
+      );
+
+      if (dto.to === TaskStatus.CLIENT_HANDOFF && clientUserIds.length > 0) {
+        await this.notifications.sendTaskClientHandoffEmails(tx, {
+          clientUserIds,
+          workspaceId: project.workspaceId,
+          taskId,
+          projectId: task.project.id,
+          taskTitle: task.title,
+          projectName: project.name,
+        });
+      }
 
       return tx.task.findUniqueOrThrow({
         where: { id: taskId },
@@ -256,11 +337,12 @@ export class TasksService {
       'Only admin or manager can update tasks',
     );
 
+    await assertProjectAllowsTaskChanges(this.prisma, task.project.id);
+
     if (
       dto.title === undefined &&
       dto.description === undefined &&
-      dto.assigneeId === undefined &&
-      dto.sprintLabel === undefined
+      dto.assigneeId === undefined
     ) {
       throw new BadRequestException('Provide at least one field to update');
     }
@@ -274,16 +356,40 @@ export class TasksService {
       );
     }
 
-    return this.prisma.task.update({
+    const updated = await this.prisma.task.update({
       where: { id: taskId },
       data: {
         ...(dto.title !== undefined && { title: dto.title }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.assigneeId !== undefined && { assigneeId: dto.assigneeId }),
-        ...(dto.sprintLabel !== undefined && { sprintLabel: dto.sprintLabel }),
       },
       include: taskViewInclude,
     });
+
+    const [actor, project] = await Promise.all([
+      this.taskNotifications.loadActor(this.prisma, userId),
+      this.prisma.project.findUnique({
+        where: { id: task.project.id },
+        select: { name: true },
+      }),
+    ]);
+
+    if (project) {
+      await this.taskNotifications.notifyUpdated(
+        this.prisma,
+        userId,
+        actor,
+        this.buildNotifyContext(
+          taskId,
+          task.project.id,
+          task.project.workspaceId,
+          updated.title,
+          project.name,
+        ),
+      );
+    }
+
+    return updated;
   }
 
   async updateDue(
@@ -299,6 +405,7 @@ export class TasksService {
       userId,
       'Only admin or manager can change due date',
     );
+    await assertProjectAllowsTaskChanges(this.prisma, task.project.id);
 
     if (dto.dueAt === undefined && dto.reason === undefined) {
       throw new BadRequestException('Provide dueAt and/or reason');
@@ -334,6 +441,30 @@ export class TasksService {
         data: { dueAt: newDueAt },
       });
 
+      const [actor, project] = await Promise.all([
+        this.taskNotifications.loadActor(tx, userId),
+        tx.project.findUnique({
+          where: { id: task.project.id },
+          select: { name: true },
+        }),
+      ]);
+
+      if (project) {
+        await this.taskNotifications.notifyDueChanged(
+          tx,
+          userId,
+          actor,
+          this.buildNotifyContext(
+            taskId,
+            task.project.id,
+            task.project.workspaceId,
+            task.title,
+            project.name,
+          ),
+          newDueAt,
+        );
+      }
+
       return tx.task.findUniqueOrThrow({
         where: { id: taskId },
         include: taskViewInclude,
@@ -346,6 +477,24 @@ export class TasksService {
       where: { id: taskId },
       include: taskViewInclude,
     });
+  }
+
+  private async loadTaskView(
+    taskId: string,
+  ): Promise<TaskView & { project: { id: string; workspaceId: string } }> {
+    const task = await this.prisma.task.findUnique({
+      where: { id: taskId },
+      include: {
+        ...taskViewInclude,
+        project: { select: { id: true, workspaceId: true } },
+      },
+    });
+
+    if (!task) {
+      throw new NotFoundException(`Task ${taskId} not found`);
+    }
+
+    return task;
   }
 
   private isSameDueAt(
@@ -377,7 +526,7 @@ export class TasksService {
   private async assertTaskAccess(
     task: TaskWithProject,
     userId: string,
-  ): Promise<void> {
+  ): Promise<WorkspaceRole> {
     const role = await assertProjectAccess(
       this.prisma,
       task.project,
@@ -387,17 +536,24 @@ export class TasksService {
     if (role === WorkspaceRole.MEMBER && task.assigneeId !== userId) {
       throw new ForbiddenException('No access to this task');
     }
+
+    return role;
   }
 
-  private async getWorkspaceRoleForTask(
+  private getWorkspaceRoleForTask(
     task: TaskWithProject,
     userId: string,
   ): Promise<WorkspaceRole> {
-    await this.assertTaskAccess(task, userId);
-    return getWorkspaceRole(
-      this.prisma,
-      task.project.workspaceId,
-      userId,
-    );
+    return this.assertTaskAccess(task, userId);
+  }
+
+  private buildNotifyContext(
+    taskId: string,
+    projectId: string,
+    workspaceId: string,
+    taskTitle: string,
+    projectName: string,
+  ): TaskNotificationContext {
+    return { taskId, projectId, workspaceId, taskTitle, projectName };
   }
 }

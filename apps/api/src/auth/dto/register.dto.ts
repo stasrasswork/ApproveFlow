@@ -22,4 +22,9 @@ export class RegisterDto {
   @IsString()
   @MaxLength(200)
   name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  inviteToken?: string;
 }
