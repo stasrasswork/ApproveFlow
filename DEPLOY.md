@@ -23,6 +23,7 @@ The web app calls the API using `VITE_API_URL` (baked in at **build time**).
 | `CORS_ORIGIN` | yes | `https://app.example.com` (comma-separated for multiple) |
 | `PORT` | no | `3000` (default) |
 | `NODE_ENV` | yes | `production` |
+| `REDIS_URL` | no | Redis for shared rate limiting across API instances (falls back to in-memory when unset) |
 
 Copy from `apps/api/.env.example` and replace secrets.
 
