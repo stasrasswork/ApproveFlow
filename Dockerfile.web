@@ -5,6 +5,8 @@ WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+COPY packages/shared/package.json packages/shared/
+COPY packages/shared packages/shared
 COPY apps/web apps/web
 RUN npm ci --include=dev
 # npm optional-deps bug with nested workspaces — install oxide binding for this platform.
@@ -16,6 +18,7 @@ RUN ARCH="$(uname -m)" && \
     fi
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
+RUN npm run build:shared
 RUN npm run build -w web
 
 FROM nginx:1.27-alpine AS runner

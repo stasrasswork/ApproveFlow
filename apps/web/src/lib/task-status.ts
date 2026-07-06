@@ -3,12 +3,14 @@ import type { TaskStatus } from '../api/types';
 
 export { TASK_STATUS_LABELS as STATUS_LABELS };
 
-/** Simplified marketing / onboarding flow (omits handoff and pending closure). */
+/** Full client-approval workflow for marketing / onboarding. */
 export const WORKFLOW_STEPS = [
   { status: 'BRIEF', label: 'Brief' },
   { status: 'PRODUCTION', label: 'Production' },
   { status: 'INTERNAL_REVIEW', label: 'Review' },
+  { status: 'CLIENT_HANDOFF', label: 'Handoff' },
   { status: 'CLIENT_APPROVAL', label: 'Client approval' },
+  { status: 'PENDING_CLOSURE', label: 'Closure' },
   { status: 'DONE', label: 'Done' },
 ] as const satisfies ReadonlyArray<{ status: TaskStatus; label: string }>;
 

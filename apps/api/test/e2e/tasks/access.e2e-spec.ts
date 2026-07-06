@@ -60,7 +60,6 @@ describeWithSeededApp('Task access (e2e)', (getContext) => {
       .send({
         title: 'Updated title',
         description: 'Updated description',
-        sprintLabel: 'Sprint 2',
       })
       .expect(200);
 
@@ -68,7 +67,6 @@ describeWithSeededApp('Task access (e2e)', (getContext) => {
       id: SEED_IDS.taskMemberDemo,
       title: 'Updated title',
       description: 'Updated description',
-      sprintLabel: 'Sprint 2',
     });
   });
 

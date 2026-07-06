@@ -38,6 +38,7 @@ describe('AuthService', () => {
   };
   let workspaceInvites: {
     acceptInviteToken: jest.Mock;
+    acceptPendingInvitesForEmail: jest.Mock;
   };
 
   const testUser = {
@@ -78,6 +79,7 @@ describe('AuthService', () => {
     };
     workspaceInvites = {
       acceptInviteToken: jest.fn().mockResolvedValue(undefined),
+      acceptPendingInvitesForEmail: jest.fn().mockResolvedValue(0),
     };
 
     service = new AuthService(

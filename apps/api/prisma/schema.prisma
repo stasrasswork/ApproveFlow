@@ -142,7 +142,6 @@ model Task {
   assigneeId  String?    @map("assignee_id")
   creatorId   String     @map("creator_id")
   dueAt       DateTime?  @map("due_at")
-  sprintLabel String?    @map("sprint_label")
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
 

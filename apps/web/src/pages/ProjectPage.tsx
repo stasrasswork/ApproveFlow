@@ -219,12 +219,12 @@ export function ProjectPage() {
       />
       {project?.status === 'PAUSED' ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          This project is paused. Work can continue, but consider resuming when ready.
+          This project is paused. New tasks, status changes, and comments are disabled until it is resumed.
         </p>
       ) : null}
       {project?.status === 'COMPLETED' ? (
         <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-          This project is completed. New tasks and status changes are disabled.
+          This project is completed. New tasks, status changes, and comments are disabled.
         </p>
       ) : null}
       <ErrorAlert message={combinedError} />

@@ -15,7 +15,8 @@
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "jest --config jest.config.ts",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
-    "test:e2e:setup": "node --env-file=.env.test ./node_modules/.bin/prisma migrate deploy"
+    "test:e2e:setup": "node --env-file=.env.test ./node_modules/.bin/prisma migrate deploy",
+    "export-openapi": "nest build && node dist/src/openapi-export.js"
   },
   "dependencies": {
     "@nest-lab/throttler-storage-redis": "^1.2.0",

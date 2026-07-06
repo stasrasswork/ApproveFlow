@@ -5,13 +5,16 @@ WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+COPY packages/shared/package.json packages/shared/
 
 FROM base AS deps
 RUN npm ci --include=dev
 
 FROM deps AS build
+COPY packages/shared packages/shared
 COPY apps/api apps/api
 ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/approveflow?schema=public
+RUN npm run build:shared
 RUN npm run db:generate -w api
 RUN npm exec -w api nest build -- -b tsc
 
@@ -22,8 +25,10 @@ RUN apk add --no-cache openssl
 
 COPY package.json package-lock.json .npmrc ./
 COPY apps/api/package.json apps/api/
+COPY packages/shared/package.json packages/shared/
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/apps/api/node_modules/prisma ./apps/api/node_modules/prisma
 COPY --from=build /app/apps/api/node_modules/@prisma ./apps/api/node_modules/@prisma
 COPY --from=build /app/apps/api/dist ./apps/api/dist

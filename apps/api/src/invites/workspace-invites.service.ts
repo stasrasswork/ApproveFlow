@@ -89,6 +89,59 @@ export class WorkspaceInvitesService {
     });
   }
 
+  async acceptPendingInvitesForEmail(
+    userId: string,
+    email: string,
+  ): Promise<number> {
+    const normalizedEmail = normalizeEmail(email);
+    const pendingInvites = await this.prisma.workspaceInvite.findMany({
+      where: {
+        email: normalizedEmail,
+        acceptedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      include: {
+        workspace: { select: { id: true, name: true } },
+      },
+    });
+
+    let accepted = 0;
+
+    for (const invite of pendingInvites) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.workspaceMember.upsert({
+          where: {
+            workspaceId_userId: {
+              workspaceId: invite.workspaceId,
+              userId,
+            },
+          },
+          update: { role: invite.role },
+          create: {
+            workspaceId: invite.workspaceId,
+            userId,
+            role: invite.role,
+          },
+        });
+
+        await tx.workspaceInvite.update({
+          where: { id: invite.id },
+          data: { acceptedAt: new Date(), acceptedById: userId },
+        });
+
+        await this.notifications.notifyWorkspaceInvite(tx, {
+          userId,
+          workspaceId: invite.workspaceId,
+          workspaceName: invite.workspace.name,
+        });
+      });
+
+      accepted += 1;
+    }
+
+    return accepted;
+  }
+
   async createEmailInvite(
     workspaceId: string,
     invitedById: string,

@@ -20,4 +20,10 @@ export async function assertProjectAllowsTaskChanges(
       'Task changes are not allowed on a completed project',
     );
   }
+
+  if (project.status === ProjectStatus.PAUSED) {
+    throw new BadRequestException(
+      'Task changes are not allowed while the project is paused',
+    );
+  }
 }

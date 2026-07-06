@@ -11,6 +11,7 @@ export NODE_ENV=development
 npm run db:generate -w api
 npm exec -w api -- prisma migrate deploy
 npm run db:seed -w api
+npm run build:shared
 npm run build -w api
 
 node apps/api/dist/main.js &
@@ -29,6 +30,7 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 
+npm run build:shared
 npm run dev -w web &
 WEB_PID=$!
 

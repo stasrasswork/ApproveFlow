@@ -38,7 +38,7 @@ describeWithSeededApp('Task due and transitions metadata (e2e)', (getContext) =>
     await request(app.getHttpServer())
       .patch(`/tasks/${SEED_IDS.taskMemberDemo}/due`)
       .set(authHeader(token))
-      .send({ dueAt, reason: 'Shifted sprint' })
+      .send({ dueAt, reason: 'Timeline shifted' })
       .expect(200);
 
     const response = await request(app.getHttpServer())
@@ -49,7 +49,7 @@ describeWithSeededApp('Task due and transitions metadata (e2e)', (getContext) =>
     expect(response.body).toHaveLength(1);
     expect(response.body[0]).toMatchObject({
       newDueAt: dueAt,
-      reason: 'Shifted sprint',
+      reason: 'Timeline shifted',
       changedBy: {
         id: SEED_IDS.manager,
         email: 'manager@test.local',

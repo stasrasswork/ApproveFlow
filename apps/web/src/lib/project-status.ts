@@ -17,5 +17,5 @@ export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
 };
 
 export function isProjectOperational(status: ProjectStatus): boolean {
-  return status !== 'COMPLETED';
+  return status === 'ACTIVE';
 }

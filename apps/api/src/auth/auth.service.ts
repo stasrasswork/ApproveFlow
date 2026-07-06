@@ -155,6 +155,22 @@ export class AuthService {
       };
     }
 
+    const acceptedInvites =
+      await this.workspaceInvites.acceptPendingInvitesForEmail(
+        user.id,
+        email,
+      );
+
+    if (acceptedInvites > 0) {
+      return {
+        ...this.toSafeUser(user),
+        message:
+          acceptedInvites === 1
+            ? 'Account created and workspace invite accepted.'
+            : `Account created and ${acceptedInvites} workspace invites accepted.`,
+      };
+    }
+
     return {
       ...this.toSafeUser(user),
       message:
