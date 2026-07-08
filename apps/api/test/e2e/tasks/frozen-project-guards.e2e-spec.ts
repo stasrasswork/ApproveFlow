@@ -15,7 +15,7 @@ async function createProjectWithTask(app: INestApplication, token: string) {
   const task = await request(app.getHttpServer())
     .post(`/projects/${project.body.id}/tasks`)
     .set(authHeader(token))
-    .send({ title: 'Guard test task', assigneeId: SEED_IDS.member })
+    .send({ title: 'Guard test task' })
     .expect(201);
 
   return { projectId: project.body.id as string, taskId: task.body.id as string };
