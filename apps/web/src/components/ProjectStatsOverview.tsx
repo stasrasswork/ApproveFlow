@@ -46,11 +46,11 @@ function StatsGroup({
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
               {item.label}
             </p>
-            <p
-              className={`mt-2 inline-flex min-w-[3.25rem] items-center justify-center rounded-xl px-3 py-1 font-display text-2xl font-bold tabular-nums tracking-tight sm:text-3xl ${STAT_VALUE_STYLES[item.accent]}`}
+            <span
+              className={`mt-2 flex h-14 w-14 items-center justify-center rounded-xl text-2xl font-semibold tabular-nums leading-none tracking-tight sm:h-16 sm:w-16 sm:text-[1.75rem] ${STAT_VALUE_STYLES[item.accent]}`}
             >
               {item.value}
-            </p>
+            </span>
           </div>
         ))}
       </div>

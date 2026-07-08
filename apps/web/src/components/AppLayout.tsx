@@ -41,7 +41,7 @@ export function AppLayout() {
           <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-5">
             <Link
               to="/"
-              className="shrink-0 font-display text-xl font-bold tracking-tight text-gradient"
+              className="shrink-0 text-xl font-semibold tracking-tight text-gradient"
             >
               ApproveFlow
             </Link>

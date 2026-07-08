@@ -15,7 +15,7 @@ export function HomePage() {
         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-100 text-2xl">
           ○
         </span>
-        <h1 className="mt-4 text-xl font-bold">Welcome to ApproveFlow</h1>
+        <h1 className="mt-4 text-xl font-semibold tracking-tight">Welcome to ApproveFlow</h1>
         <p className="mt-2 text-sm text-slate-500">
           Create a workspace for your agency, or wait for an invite from an
           existing team.

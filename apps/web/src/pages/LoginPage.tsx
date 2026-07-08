@@ -45,13 +45,13 @@ export function LoginPage() {
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImEiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggIGQ9Ik0wIDYwVjBoNjB2NjB6IiBmaWxsPSJub25lIi8+PHBhdGggZD0iTTMwIDMwSDMwLjVWMzAuNUgzMFYzMHoiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IGZpbGw9InVybCgjYSkiLz48L3N2Zz4=')] opacity-40" />
 
         <div className="relative">
-          <span className="font-display text-3xl font-bold text-white">
+          <span className="text-3xl font-semibold tracking-tight text-white">
             ApproveFlow
           </span>
         </div>
 
         <div className="relative space-y-4">
-          <h1 className="font-display text-4xl font-bold leading-tight text-white">
+          <h1 className="text-4xl font-semibold leading-tight tracking-tight text-white">
             Client approvals,
             <br />
             without the chaos.
@@ -75,11 +75,11 @@ export function LoginPage() {
           <section className="relative overflow-hidden rounded-2xl border border-brand-100/80 bg-gradient-to-br from-brand-900 via-brand-700 to-brand-600 p-4 shadow-sm sm:p-6 lg:hidden">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(244,63,94,0.35),transparent_50%)]" />
             <div className="relative space-y-4">
-              <p className="font-display text-xl font-bold tracking-tight text-white sm:text-2xl">
+              <p className="text-xl font-semibold tracking-tight text-white sm:text-2xl">
                 ApproveFlow
               </p>
               <div className="space-y-2">
-                <h2 className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
+                <h2 className="text-2xl font-semibold leading-tight tracking-tight text-white sm:text-3xl">
                   Client approvals,
                   <br />
                   without the chaos.

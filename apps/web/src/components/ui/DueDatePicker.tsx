@@ -127,7 +127,7 @@ export function DueDatePickerFields({
       <div className="space-y-4 p-4">
         {preview ? (
           <div className="rounded-xl border border-brand-100 bg-white/80 px-4 py-3 text-center">
-            <p className="font-display text-lg font-bold tracking-tight text-slate-900">
+            <p className="text-lg font-semibold tracking-tight text-slate-900">
               {preview}
             </p>
             {relative ? (
@@ -159,6 +159,7 @@ export function DueDatePickerFields({
         <div className="space-y-1.5">
           <Label htmlFor={dateId}>Date</Label>
           <DatePickerInput
+            key={`${dateId}-${dueDate}`}
             id={dateId}
             value={dueDate}
             onChange={onDueDateChange}

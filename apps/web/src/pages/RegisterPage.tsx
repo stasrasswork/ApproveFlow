@@ -47,11 +47,11 @@ export function RegisterPage() {
         <section className="relative overflow-hidden rounded-2xl border border-brand-100/80 bg-gradient-to-br from-brand-900 via-brand-700 to-brand-600 p-4 shadow-sm sm:p-6 lg:hidden">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(244,63,94,0.35),transparent_50%)]" />
           <div className="relative space-y-4">
-            <p className="font-display text-xl font-bold tracking-tight text-white sm:text-2xl">
+            <p className="text-xl font-semibold tracking-tight text-white sm:text-2xl">
               ApproveFlow
             </p>
             <div className="space-y-2">
-              <h2 className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
+              <h2 className="text-2xl font-semibold leading-tight tracking-tight text-white sm:text-3xl">
                 Client approvals,
                 <br />
                 without the chaos.

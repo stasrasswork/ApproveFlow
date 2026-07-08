@@ -156,7 +156,7 @@ function CalendarPopover({
         >
           <ChevronLeftIcon />
         </button>
-        <p className="font-display text-sm font-bold tracking-tight text-slate-900">
+        <p className="text-sm font-semibold tracking-tight text-slate-900">
           {getMonthLabel(viewYear, viewMonth)}
         </p>
         <button
@@ -265,6 +265,15 @@ export function DatePickerInput({
   const calendarId = useId();
   const pickerValue = toDateInputValue(value);
   const displayValue = pickerValue ? formatDateInputDisplay(pickerValue) : '';
+  const previousPickerValue = useRef(pickerValue);
+
+  useEffect(() => {
+    if (previousPickerValue.current !== pickerValue && open) {
+      setOpen(false);
+      triggerRef.current?.focus();
+    }
+    previousPickerValue.current = pickerValue;
+  }, [pickerValue, open]);
 
   function openCalendar() {
     if (disabled) {

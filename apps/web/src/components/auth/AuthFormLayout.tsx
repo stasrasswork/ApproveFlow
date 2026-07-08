@@ -34,8 +34,8 @@ export function AuthFormLayout({
         <Heading
           className={
             backLink
-              ? 'mt-4 text-2xl font-bold'
-              : 'text-2xl font-bold text-slate-900'
+              ? 'mt-4 text-2xl font-semibold tracking-tight'
+              : 'text-2xl font-semibold tracking-tight text-slate-900'
           }
         >
           {title}

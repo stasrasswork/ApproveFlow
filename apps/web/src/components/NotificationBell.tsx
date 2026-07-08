@@ -8,6 +8,17 @@ import { formatDateTime } from '../lib/format';
 import { queryKeys } from '../lib/query-keys';
 import { Button } from './ui/Button';
 
+/** Read notifications older than this are hidden from the dropdown. */
+const READ_NOTIFICATION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function isRelevantNotification(item: { read: boolean; createdAt: string }): boolean {
+  if (!item.read) {
+    return true;
+  }
+  const age = Date.now() - new Date(item.createdAt).getTime();
+  return age <= READ_NOTIFICATION_MAX_AGE_MS;
+}
+
 function BellIcon({ className = '' }: { className?: string }) {
   return (
     <svg
@@ -105,6 +116,8 @@ export function NotificationBell() {
     };
   }, [open]);
 
+  const visibleNotifications = notifications.filter(isRelevantNotification);
+
   return (
     <div ref={panelRef} className="relative">
       <Button
@@ -155,11 +168,11 @@ export function NotificationBell() {
               </Button>
             </div>
           </div>
-          {notifications.length === 0 ? (
+          {visibleNotifications.length === 0 ? (
             <p className="text-sm text-slate-500">No notifications yet.</p>
           ) : (
             <ul className="max-h-72 space-y-2 overflow-y-auto">
-              {notifications.map((item) => {
+              {visibleNotifications.map((item) => {
                 const workspaceId = item.workspaceId ?? activeWorkspace?.id;
                 const href =
                   workspaceId && item.projectId && item.taskId

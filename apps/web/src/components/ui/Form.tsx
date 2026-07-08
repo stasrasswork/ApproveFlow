@@ -11,7 +11,7 @@ export const controlBorderClass = 'border border-slate-200 bg-white';
 
 export const fieldClass = `w-full px-4 ${controlSizeClass} ${controlBorderClass} text-slate-800 placeholder:text-slate-400 hover:border-slate-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-100/80 disabled:cursor-not-allowed disabled:opacity-50`;
 
-export const titleFieldClass = `w-full min-w-0 px-4 ${controlSizeClass} ${controlBorderClass} font-display text-lg font-bold tracking-tight text-slate-900 placeholder:text-slate-400 hover:border-slate-300 hover:shadow-md focus:border-brand-400 focus:ring-2 focus:ring-brand-100/80 disabled:cursor-not-allowed disabled:opacity-50`;
+export const titleFieldClass = `w-full min-w-0 px-4 ${controlSizeClass} ${controlBorderClass} text-lg font-semibold tracking-tight text-slate-900 placeholder:font-normal placeholder:text-slate-400 hover:border-slate-300 hover:shadow-md focus:border-brand-400 focus:ring-2 focus:ring-brand-100/80 disabled:cursor-not-allowed disabled:opacity-50`;
 
 export const textareaClass =
   'min-h-[6.5rem] w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-relaxed text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-brand-400 focus:ring-2 focus:ring-brand-100/80 disabled:cursor-not-allowed disabled:opacity-50';
