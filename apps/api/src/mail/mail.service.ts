@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { ENV } from '../config/env.js';
 
 export type SendMailOptions = {
   to: string;
@@ -15,20 +16,24 @@ export class MailService {
   private transporter: Transporter | null = null;
 
   isConfigured(): boolean {
-    return Boolean(process.env.SMTP_HOST && process.env.SMTP_FROM);
+    return Boolean(
+      (process.env.SMTP_HOST ?? ENV.SMTP_HOST) &&
+        (process.env.SMTP_FROM ?? ENV.SMTP_FROM),
+    );
   }
 
   private getTransporter(): Transporter {
     if (!this.transporter) {
       this.transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT ?? 587),
-        secure: process.env.SMTP_SECURE === 'true',
+        host: process.env.SMTP_HOST ?? ENV.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT ?? ENV.SMTP_PORT),
+        secure: (process.env.SMTP_SECURE ?? String(ENV.SMTP_SECURE)) === 'true',
         auth:
-          process.env.SMTP_USER && process.env.SMTP_PASS
+          (process.env.SMTP_USER ?? ENV.SMTP_USER) &&
+          (process.env.SMTP_PASS ?? ENV.SMTP_PASS)
             ? {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS,
+                user: process.env.SMTP_USER ?? ENV.SMTP_USER,
+                pass: process.env.SMTP_PASS ?? ENV.SMTP_PASS,
               }
             : undefined,
       });
@@ -38,7 +43,7 @@ export class MailService {
   }
 
   async send(options: SendMailOptions): Promise<boolean> {
-    const from = process.env.SMTP_FROM ?? 'noreply@approveflow.local';
+    const from = process.env.SMTP_FROM ?? ENV.SMTP_FROM ?? 'noreply@approveflow.local';
 
     if (!this.isConfigured()) {
       this.logger.warn(
@@ -60,10 +65,7 @@ export class MailService {
   }
 
   appUrl(path: string): string {
-    const base = (process.env.APP_URL ?? 'http://localhost:5173').replace(
-      /\/$/,
-      '',
-    );
+    const base = (process.env.APP_URL ?? ENV.APP_URL).replace(/\/$/, '');
     return `${base}${path.startsWith('/') ? path : `/${path}`}`;
   }
 }

@@ -5,9 +5,10 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
+import { ENV } from './config/env.js';
 
 function configureCors(app: Awaited<ReturnType<typeof NestFactory.create>>): void {
-  const corsOrigin = process.env.CORS_ORIGIN;
+  const corsOrigin = ENV.CORS_ORIGIN;
 
   app.enableCors({
     origin: corsOrigin
@@ -37,12 +38,11 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  if (process.env.NODE_ENV !== 'production') {
+  if (ENV.NODE_ENV !== 'production') {
     SwaggerModule.setup('docs', app, swaggerDocument);
   }
 
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
+  await app.listen(ENV.PORT);
 }
 bootstrap().catch((err) => {
   console.error(err);

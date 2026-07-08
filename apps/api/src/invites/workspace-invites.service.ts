@@ -9,6 +9,7 @@ import {
   userBriefSelect,
   type UserBrief,
 } from '../common/index.js';
+import { ENV } from '../config/env.js';
 import { MailService } from '../mail/mail.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -182,7 +183,11 @@ export class WorkspaceInvitesService {
       ? 'Invite email sent.'
       : 'Invite created. Share the link with the invitee (SMTP not configured).';
 
-    if (process.env.NODE_ENV !== 'production' || !sent) {
+    if (
+      !sent ||
+      ENV.NODE_ENV === 'test' ||
+      (ENV.EXPOSE_DEBUG_TOKENS && ENV.NODE_ENV !== 'production')
+    ) {
       return { status: 'pending', message, inviteToken: rawToken };
     }
 
