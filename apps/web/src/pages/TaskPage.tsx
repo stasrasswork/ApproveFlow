@@ -13,6 +13,7 @@ import { LoadingState } from '../components/ui/LoadingState';
 import { PageError } from '../components/ui/PageError';
 import { TitleInput, Textarea, InlineFormRow } from '../components/ui/Form';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { useHandoffClientOptions } from '../hooks/useHandoffClientOptions';
 import { useTaskMutations } from '../hooks/useTaskMutations';
 import { getApiErrorMessage } from '../lib/api-error';
 import { liveQueryOptions } from '../lib/constants';
@@ -28,16 +29,21 @@ import {
   filterAssignableMembers,
 } from '../lib/members';
 import { isAgencyRole } from '../lib/roles';
+import { roleForWorkspace } from '../lib/route-workspace-role';
+import { isProjectEditable } from '../lib/project-status';
 import { getBlockingHint } from '../lib/task-status';
 
 export function TaskPage() {
   const { workspaceId = '', projectId = '', taskId = '' } = useParams();
-  const { activeWorkspace } = useAuth();
-  const role = activeWorkspace?.role;
+  const { user } = useAuth();
+  const role = roleForWorkspace(user, workspaceId);
   const queryClient = useQueryClient();
 
   const [commentBody, setCommentBody] = useState('');
   const [newComment, setNewComment] = useState('');
+  const [selectedHandoffClientIds, setSelectedHandoffClientIds] = useState<
+    string[]
+  >([]);
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [pendingTransition, setPendingTransition] = useState<
     AllowedTransitions['targets'][number] | null
@@ -87,6 +93,13 @@ export function TaskPage() {
     ...liveQueryOptions,
   });
 
+  const { data: project } = useQuery({
+    queryKey: queryKeys.project(projectId),
+    queryFn: () => projectsApi.get(projectId),
+    enabled: Boolean(projectId),
+    ...liveQueryOptions,
+  });
+
   const { data: workspaceMembers = [] } = useQuery({
     queryKey: queryKeys.workspaceMembers(workspaceId),
     queryFn: () => workspacesApi.members.list(workspaceId),
@@ -109,6 +122,9 @@ export function TaskPage() {
   );
 
   const agency = role ? isAgencyRole(role) : false;
+  const projectEditable = project ? isProjectEditable(project.status) : true;
+  const canEditTask =
+    agency && projectEditable && task?.status !== 'DONE';
 
   const { data: clientsOutside = [] } = useQuery({
     queryKey: queryKeys.clientsOutside(projectId),
@@ -119,6 +135,16 @@ export function TaskPage() {
       (task?.status === 'INTERNAL_REVIEW' ||
         transitions?.targets.some((t) => t.to === 'CLIENT_HANDOFF')),
   });
+
+  const handoffClients = useHandoffClientOptions(
+    workspaceMembers,
+    clientsOutside,
+  );
+  const showHandoffPicker =
+    canEditTask &&
+    (task?.status === 'INTERNAL_REVIEW' ||
+      transitions?.targets.some((target) => target.to === 'CLIENT_HANDOFF') ||
+      pendingTransition?.to === 'CLIENT_HANDOFF');
 
   const { transitionMutation, commentMutation, updateDueMutation, invalidateTask } =
     useTaskMutations(taskId, projectId, setTransitionError);
@@ -174,9 +200,12 @@ export function TaskPage() {
 
   const blocking = getBlockingHint(task.status);
   const showTransitions = (transitions?.targets.length ?? 0) > 0;
-  const canEditDueDate = agency;
+  const canEditDueDate = canEditTask;
   const canSetDueDate = canEditDueDate && !isEditing;
-  const showActionsCard = showTransitions || canSetDueDate;
+  const showActionsCard =
+    projectEditable &&
+    task.status !== 'DONE' &&
+    (showTransitions || canSetDueDate);
 
   function openDueDateForm() {
     setQuickDueDate(toDateInputValue(task!.dueAt));
@@ -197,14 +226,43 @@ export function TaskPage() {
       setTransitionError('Due date is required');
       return;
     }
-    updateDueMutation.mutate({
-      dueDate: quickDueDate,
-      reason: quickDueReason.trim() || undefined,
-    });
+    updateDueMutation.mutate(
+      {
+        dueDate: quickDueDate,
+        reason: quickDueReason.trim() || undefined,
+      },
+      { onSuccess: () => cancelDueDateForm() },
+    );
+  }
+
+  function handoffClientIdsForTransition(
+    target: AllowedTransitions['targets'][number],
+  ): string[] | undefined {
+    if (target.to !== 'CLIENT_HANDOFF') {
+      return undefined;
+    }
+    return selectedHandoffClientIds;
+  }
+
+  function validateHandoffSelection(
+    target: AllowedTransitions['targets'][number],
+  ): boolean {
+    if (target.to !== 'CLIENT_HANDOFF') {
+      return true;
+    }
+    if (selectedHandoffClientIds.length === 0) {
+      setTransitionError('Select at least one client for handoff');
+      return false;
+    }
+    return true;
   }
 
   function handleTransition(target: AllowedTransitions['targets'][number]) {
     if (!task) {
+      return;
+    }
+
+    if (!validateHandoffSelection(target)) {
       return;
     }
 
@@ -214,12 +272,16 @@ export function TaskPage() {
     }
 
     transitionMutation.mutate(
-      { to: target.to },
+      {
+        to: target.to,
+        clientUserIds: handoffClientIdsForTransition(target),
+      },
       {
         onSuccess: () => {
           setPendingTransition(null);
           setCommentBody('');
           setShowDueDateForm(false);
+          setSelectedHandoffClientIds([]);
         },
       },
     );
@@ -230,16 +292,21 @@ export function TaskPage() {
     if (!pendingTransition || !commentBody.trim()) {
       return;
     }
+    if (!validateHandoffSelection(pendingTransition)) {
+      return;
+    }
     transitionMutation.mutate(
       {
         to: pendingTransition.to,
         comment: commentBody.trim(),
+        clientUserIds: handoffClientIdsForTransition(pendingTransition),
       },
       {
         onSuccess: () => {
           setPendingTransition(null);
           setCommentBody('');
           setShowDueDateForm(false);
+          setSelectedHandoffClientIds([]);
         },
       },
     );
@@ -283,9 +350,14 @@ export function TaskPage() {
         >
           ← Back to project
         </Link>
+        {!projectEditable ? (
+          <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            This project is completed. Task editing is disabled.
+          </p>
+        ) : null}
         <div className="mt-5">
           <InlineFormRow>
-            {isEditing ? (
+            {isEditing && canEditTask ? (
               <TitleInput
                 id="task-title"
                 value={editTitle}
@@ -295,12 +367,12 @@ export function TaskPage() {
                 required
               />
             ) : (
-              <h1 className="min-w-0 break-words font-display text-3xl font-bold">
+              <h1 className="min-w-0 break-words text-3xl font-semibold tracking-tight text-slate-900">
                 {task.title}
               </h1>
             )}
             <StatusBadge status={task.status} size="md" />
-            {agency && isEditing ? (
+            {canEditTask && isEditing ? (
               <>
                 <Button
                   type="button"
@@ -319,7 +391,7 @@ export function TaskPage() {
                 </Button>
               </>
             ) : null}
-            {agency && !isEditing ? (
+            {canEditTask && !isEditing ? (
               <Button type="button" variant="secondary" onClick={startEditing}>
                 Edit
               </Button>
@@ -337,7 +409,7 @@ export function TaskPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <Card title="Description" accent="blue">
-            {isEditing && agency ? (
+            {isEditing && canEditTask ? (
               <Textarea
                 id="description"
                 value={editDescription}
@@ -353,7 +425,10 @@ export function TaskPage() {
           <TaskActionsSection
             showActionsCard={showActionsCard}
             transitionError={transitionError}
-            clientsOutside={clientsOutside}
+            handoffClients={handoffClients}
+            showHandoffPicker={Boolean(showHandoffPicker)}
+            selectedHandoffClientIds={selectedHandoffClientIds}
+            onHandoffClientsChange={setSelectedHandoffClientIds}
             showTransitions={showTransitions}
             transitions={transitions}
             canSetDueDate={canSetDueDate}
@@ -391,7 +466,7 @@ export function TaskPage() {
         <TaskDetailsSidebar
           task={task}
           isEditing={isEditing}
-          agency={agency}
+          canEdit={canEditTask}
           canEditDueDate={canEditDueDate}
           editAssigneeId={editAssigneeId}
           editDueDate={editDueDate}

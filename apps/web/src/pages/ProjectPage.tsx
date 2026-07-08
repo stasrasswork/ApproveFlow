@@ -25,14 +25,15 @@ import { workspaceMemberDropdownOptions } from '../lib/dropdown-options';
 import { ensureAssigneeInProject } from '../lib/ensure-assignee';
 import { dateInputToIso } from '../lib/format';
 import { assigneeNeedsProjectAccess } from '../lib/members';
-import { isProjectOperational, PROJECT_STATUS_OPTIONS } from '../lib/project-status';
+import { isProjectEditable, PROJECT_STATUS_OPTIONS } from '../lib/project-status';
 import { queryKeys } from '../lib/query-keys';
+import { roleForWorkspace } from '../lib/route-workspace-role';
 
 export function ProjectPage() {
   const { workspaceId = '', projectId = '' } = useParams();
   const navigate = useNavigate();
-  const { activeWorkspace } = useAuth();
-  const role = activeWorkspace?.role;
+  const { user } = useAuth();
+  const role = roleForWorkspace(user, workspaceId);
   const queryClient = useQueryClient();
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [isEditingProject, setIsEditingProject] = useState(false);
@@ -47,7 +48,7 @@ export function ProjectPage() {
   const [confirmDeleteProject, setConfirmDeleteProject] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const members = useProjectMembers(projectId, workspaceId, role);
+  const members = useProjectMembers(projectId, workspaceId, role ?? undefined);
 
   const {
     data: project,
@@ -67,9 +68,9 @@ export function ProjectPage() {
     ...liveQueryOptions,
   });
 
-  const { data: activity = [] } = useQuery({
-    queryKey: queryKeys.projectActivity(projectId),
-    queryFn: () => projectsApi.activity(projectId),
+  const { data: activityPage } = useQuery({
+    queryKey: [...queryKeys.projectActivity(projectId), activityLimit],
+    queryFn: () => projectsApi.activity(projectId, { limit: activityLimit }),
     enabled: Boolean(projectId),
     ...liveQueryOptions,
   });
@@ -182,10 +183,10 @@ export function ProjectPage() {
   }
 
   const canManage = members.canManage;
-  const canCreateTask =
-    canManage && project ? isProjectOperational(project.status) : false;
-  const visibleActivity = activity.slice(0, activityLimit);
-  const hasMoreActivity = activity.length > activityLimit;
+  const projectEditable = project ? isProjectEditable(project.status) : false;
+  const canCreateTask = canManage && projectEditable;
+  const activity = activityPage?.items ?? [];
+  const hasMoreActivity = Boolean(activityPage?.nextCursor);
   const combinedError = actionError ?? members.actionError;
 
   if (projectError) {
@@ -219,12 +220,12 @@ export function ProjectPage() {
       />
       {project?.status === 'PAUSED' ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          This project is paused. New tasks, status changes, and comments are disabled until it is resumed.
+          This project is marked as paused (informational). Task workflow continues as usual.
         </p>
       ) : null}
       {project?.status === 'COMPLETED' ? (
         <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-          This project is completed. New tasks, status changes, and comments are disabled.
+          This project is completed. Editing project settings, tasks, and members is disabled.
         </p>
       ) : null}
       <ErrorAlert message={combinedError} />
@@ -286,7 +287,7 @@ export function ProjectPage() {
           ) : (
             <>
               <div className="mt-3 flex flex-wrap items-center gap-3">
-                <h1 className="font-display text-3xl font-bold tracking-tight text-slate-900">
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
                   {project?.name ?? '…'}
                 </h1>
                 {project ? <ProjectStatusBadge status={project.status} /> : null}
@@ -302,7 +303,7 @@ export function ProjectPage() {
           )}
         </div>
         <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
-          {canManage && !isEditingProject ? (
+          {canManage && projectEditable && !isEditingProject ? (
             <>
               <Button
                 type="button"
@@ -362,7 +363,7 @@ export function ProjectPage() {
             ) : (
               <>
                 <ul>
-                  {visibleActivity.map((item) => (
+                  {activity.map((item) => (
                     <ProjectActivityItem
                       key={`${item.type}-${item.id}`}
                       item={item}
@@ -380,7 +381,7 @@ export function ProjectPage() {
                         setActivityLimit((limit) => limit + ACTIVITY_PAGE_SIZE)
                       }
                     >
-                      Load more ({activity.length - activityLimit} remaining)
+                      Load more
                     </Button>
                   </div>
                 ) : null}
@@ -391,6 +392,7 @@ export function ProjectPage() {
 
         {canManage ? (
           <ProjectMembersSection
+            readOnly={!projectEditable}
             projectMembers={members.projectMembers}
             roleByUserId={members.roleByUserId}
             availableForProject={members.availableForProject}

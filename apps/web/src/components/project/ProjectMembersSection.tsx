@@ -19,6 +19,7 @@ type ProjectMembersSectionProps = {
   onAddMember: () => void;
   onRemoveMember: (member: { userId: string; name: string }) => void;
   memberDropdownOptions: DropdownOption[];
+  readOnly?: boolean;
 };
 
 export function ProjectMembersSection({
@@ -32,6 +33,7 @@ export function ProjectMembersSection({
   onAddMember,
   onRemoveMember,
   memberDropdownOptions,
+  readOnly = false,
 }: ProjectMembersSectionProps) {
   return (
     <Card title="Project members" accent="emerald">
@@ -56,25 +58,27 @@ export function ProjectMembersSection({
                   </div>
                 ) : null}
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                className="shrink-0 self-center text-rose-600 hover:text-rose-700"
-                disabled={removePending}
-                onClick={() =>
-                  onRemoveMember({
-                    userId: member.userId,
-                    name: userDisplayName(member.user),
-                  })
-                }
-              >
-                Remove
-              </Button>
+              {readOnly ? null : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="shrink-0 self-center text-rose-600 hover:text-rose-700"
+                  disabled={removePending}
+                  onClick={() =>
+                    onRemoveMember({
+                      userId: member.userId,
+                      name: userDisplayName(member.user),
+                    })
+                  }
+                >
+                  Remove
+                </Button>
+              )}
             </li>
           );
         })}
       </ul>
-      {availableForProject.length > 0 ? (
+      {!readOnly && availableForProject.length > 0 ? (
         <div className="space-y-4 border-t border-slate-100 pt-5">
           <Field label="Add from workspace">
             <Dropdown

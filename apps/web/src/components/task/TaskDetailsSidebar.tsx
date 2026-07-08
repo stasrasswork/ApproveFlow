@@ -19,7 +19,7 @@ type DropdownOption = { value: string; label: string };
 type TaskDetailsSidebarProps = {
   task: TaskView;
   isEditing: boolean;
-  agency: boolean;
+  canEdit: boolean;
   canEditDueDate: boolean;
   editAssigneeId: string;
   editDueDate: string;
@@ -36,7 +36,7 @@ type TaskDetailsSidebarProps = {
 export function TaskDetailsSidebar({
   task,
   isEditing,
-  agency,
+  canEdit,
   canEditDueDate,
   editAssigneeId,
   editDueDate,
@@ -54,7 +54,7 @@ export function TaskDetailsSidebar({
       <Card title="Details" accent="emerald">
         <FormStack>
           <Field label="Assignee">
-            {isEditing && agency ? (
+            {isEditing && canEdit ? (
               <>
                 <Dropdown
                   value={editAssigneeId}
@@ -82,7 +82,7 @@ export function TaskDetailsSidebar({
             </p>
           </Field>
           <Field label="Due date">
-            {isEditing && agency && canEditDueDate ? (
+            {isEditing && canEdit && canEditDueDate ? (
               <DueDatePickerFields
                 dueDate={editDueDate}
                 onDueDateChange={onEditDueDateChange}
