@@ -31,7 +31,7 @@ npm run start:dev
 
 API listens on `http://localhost:3000` by default. Health check: `GET /health`. OpenAPI docs: `GET /docs`.
 
-## Environment
+## Environment (validated on boot)
 
 Copy `.env.example` to `.env` and adjust values.
 
@@ -41,6 +41,12 @@ Copy `.env.example` to `.env` and adjust values.
 | `JWT_SECRET` | prod | Secret for access/refresh tokens. In production (`NODE_ENV=production`) the app fails to start without it. Dev fallback: `dev-secret-change-me` |
 | `PORT` | no | HTTP port (default `3000`) |
 | `CORS_ORIGIN` | no | Comma-separated allowed origins. If unset, all origins are allowed (dev-friendly) |
+| `REDIS_URL` | no | Redis DSN for distributed throttling storage |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | no | SMTP delivery settings |
+| `APP_URL` | no | Base web URL used in links inside emails (default `http://localhost:5173`) |
+| `EXPOSE_DEBUG_TOKENS` | no | `true` exposes invite/reset raw tokens in non-production (disabled by default) |
+
+The API validates env at startup (`src/config/env.ts`) and fails fast on invalid config.
 
 Example (`.env.example`):
 
@@ -76,6 +82,8 @@ npm run db:migrate
 ```bash
 npx prisma migrate deploy
 ```
+
+Recent production migrations include `user.token_version` (session revocation) and `email_outbox` (async email retry/DLQ). Run `migrate deploy` before rolling out API builds that depend on them.
 
 ### Push schema without migrations
 

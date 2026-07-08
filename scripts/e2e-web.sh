@@ -14,7 +14,7 @@ npm run db:seed -w api
 npm run build:shared
 npm run build -w api
 
-node apps/api/dist/main.js &
+node apps/api/dist/src/main.js &
 API_PID=$!
 
 cleanup() {

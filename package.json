@@ -26,6 +26,7 @@
     "codegen:openapi": "npm run build:shared && npm run db:generate -w api && npm run export-openapi -w api && openapi-typescript packages/shared/openapi.json -o packages/shared/src/generated/openapi.ts && npm run build -w @approveflow/shared"
   },
   "devDependencies": {
+    "jsdom": "^29.1.1",
     "openapi-typescript": "^7.13.0"
   }
 }
