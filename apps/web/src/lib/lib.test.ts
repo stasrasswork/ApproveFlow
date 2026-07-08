@@ -6,6 +6,7 @@ import {
 import { isValidSlug, slugify } from './slug';
 import { getEventTypeLabel } from './task-events';
 import { isAgencyRole } from './roles';
+import { roleForWorkspace } from './route-workspace-role';
 
 describe('getEventTypeLabel', () => {
   it('labels handoff acknowledgement', () => {
@@ -62,5 +63,22 @@ describe('slug', () => {
   it('validates slug format', () => {
     expect(isValidSlug('my-agency')).toBe(true);
     expect(isValidSlug('My Agency')).toBe(false);
+  });
+});
+
+describe('route workspace role', () => {
+  it('derives role from route workspace id', () => {
+    expect(
+      roleForWorkspace(
+        {
+          id: 'u-1',
+          email: 'u@test.local',
+          name: 'User',
+          workspaces: [{ id: 'w-2', name: 'W2', slug: 'w2', role: 'MANAGER' }],
+        },
+        'w-2',
+      ),
+    ).toBe('MANAGER');
+    expect(roleForWorkspace(null, 'w-2')).toBeNull();
   });
 });

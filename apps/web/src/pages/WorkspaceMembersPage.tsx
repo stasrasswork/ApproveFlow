@@ -23,13 +23,14 @@ import {
   canUpdateWorkspace,
   isAgencyRole,
 } from '../lib/roles';
+import { roleForWorkspace } from '../lib/route-workspace-role';
 import { isValidSlug, SLUG_VALIDATION_MESSAGE } from '../lib/slug';
 
 export function WorkspaceMembersPage() {
   const { workspaceId = '' } = useParams();
   const navigate = useNavigate();
   const { user, activeWorkspace, refreshUser } = useAuth();
-  const role = activeWorkspace?.role;
+  const role = roleForWorkspace(user, workspaceId);
   const queryClient = useQueryClient();
   const [email, setEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>('MEMBER');
@@ -267,7 +268,7 @@ export function WorkspaceMembersPage() {
         >
           ← All projects
         </Link>
-        <h1 className="mt-2 font-display text-3xl font-bold">Settings</h1>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Settings</h1>
         <p className="text-slate-500">{displayName}</p>
       </div>
 

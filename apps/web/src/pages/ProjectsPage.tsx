@@ -14,12 +14,13 @@ import { Input, Textarea, Field, FormStack, FormActions } from '../components/ui
 import { getApiErrorMessage } from '../lib/api-error';
 import { liveQueryOptions } from '../lib/constants';
 import { queryKeys } from '../lib/query-keys';
+import { roleForWorkspace } from '../lib/route-workspace-role';
 import { isAgencyRole } from '../lib/roles';
 
 export function ProjectsPage() {
   const { workspaceId = '' } = useParams();
-  const { activeWorkspace } = useAuth();
-  const role = activeWorkspace?.role;
+  const { activeWorkspace, user } = useAuth();
+  const role = roleForWorkspace(user, workspaceId);
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
@@ -70,7 +71,7 @@ export function ProjectsPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
           Projects
         </p>
-        <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-slate-900">
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">
           {activeWorkspace?.name ?? 'Workspace'}
         </h1>
       </div>
