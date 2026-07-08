@@ -49,7 +49,7 @@ export function WorkspaceSwitcher() {
       placeholder="Select workspace"
       size="md"
       compactTrigger
-      className="min-w-[220px] max-w-[280px]"
+      className="w-full min-w-0 sm:min-w-[220px] sm:max-w-[280px]"
       triggerClassName="border-brand-100/80 bg-white/90"
     />
   );

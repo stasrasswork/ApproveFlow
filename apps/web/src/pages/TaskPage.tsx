@@ -290,12 +290,14 @@ export function TaskPage() {
                 id="task-title"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                className="min-w-[12rem] flex-1"
+                className="w-full min-w-0 flex-1 sm:min-w-[12rem]"
                 aria-label="Task title"
                 required
               />
             ) : (
-              <h1 className="font-display text-3xl font-bold">{task.title}</h1>
+              <h1 className="min-w-0 break-words font-display text-3xl font-bold">
+                {task.title}
+              </h1>
             )}
             <StatusBadge status={task.status} size="md" />
             {agency && isEditing ? (
@@ -342,7 +344,7 @@ export function TaskPage() {
                 onChange={(e) => setEditDescription(e.target.value)}
               />
             ) : (
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-700">
                 {task.description || 'No description'}
               </p>
             )}

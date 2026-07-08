@@ -38,7 +38,7 @@ export function TaskCommentsSection({
                   role={comment.authorRole}
                   timestamp={formatDateTime(comment.createdAt)}
                 />
-                <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">
                   {comment.body}
                 </p>
               </div>

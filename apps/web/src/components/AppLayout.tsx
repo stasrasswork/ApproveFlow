@@ -37,8 +37,8 @@ export function AppLayout() {
   return (
     <div className="min-h-screen">
       <header className="glass-header sticky top-0 z-50">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5">
-          <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3.5">
+          <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-5">
             <Link
               to="/"
               className="shrink-0 font-display text-xl font-bold tracking-tight text-gradient"
@@ -49,7 +49,7 @@ export function AppLayout() {
           </div>
 
           {user ? (
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0">
               <div className="hidden flex-col justify-center px-2 text-right md:flex">
                 <p className="text-sm font-semibold leading-tight text-slate-800">
                   {userDisplayName(user)}
@@ -66,13 +66,13 @@ export function AppLayout() {
                 <ButtonLink
                   to={`/w/${currentWorkspaceId}/members`}
                   variant="secondary"
-                  className="!px-0 w-11 min-w-11"
+                  className="!px-0 h-11 w-11 min-w-11"
                   aria-label="Settings"
                 >
                   <SettingsIcon className="h-5 w-5" />
                 </ButtonLink>
               ) : null}
-              <Button variant="secondary" onClick={logout}>
+              <Button variant="secondary" onClick={logout} className="w-full sm:w-auto">
                 Sign out
               </Button>
             </div>

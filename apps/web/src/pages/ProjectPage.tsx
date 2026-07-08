@@ -292,7 +292,7 @@ export function ProjectPage() {
                 {project ? <ProjectStatusBadge status={project.status} /> : null}
               </div>
               {project?.description ? (
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+                <p className="mt-2 max-w-2xl break-words text-sm leading-relaxed text-slate-500">
                   {project.description}
                 </p>
               ) : (
@@ -301,16 +301,21 @@ export function ProjectPage() {
             </>
           )}
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
           {canManage && !isEditingProject ? (
             <>
-              <Button type="button" variant="secondary" onClick={startEditingProject}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={startEditingProject}
+                className="w-full sm:w-auto"
+              >
                 Edit
               </Button>
               <Button
                 type="button"
                 variant="ghost"
-                className="text-rose-600 hover:text-rose-700"
+                className="w-full text-rose-600 hover:text-rose-700 sm:w-auto"
                 disabled={deleteProjectMutation.isPending}
                 onClick={() => setConfirmDeleteProject(true)}
               >

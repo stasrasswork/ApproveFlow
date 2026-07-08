@@ -57,7 +57,7 @@ export function LoginPage() {
             without the chaos.
           </h1>
           <p className="max-w-md text-lg text-brand-100">
-            Track every handoff, comment, and sign-off in one workspace — from
+            Track every handoff, comment, and sign-off in one workspace - from
             brief to done.
           </p>
         </div>
@@ -70,71 +70,94 @@ export function LoginPage() {
         </div>
       </aside>
 
-      <div className="flex flex-1 items-center justify-center px-4 py-12">
-        <div className="glass-panel w-full max-w-md p-8">
-          <AuthFormLayout
-            title="Welcome back"
-            subtitle="Sign in to your workspace"
-            headingAs="h2"
-            headerExtra={
-              <div className="mt-5 lg:hidden">
-                <TaskWorkflowSteps variant="light" />
-              </div>
-            }
-            footer={
-              <>
-                No account?{' '}
-                <Link
-                  to="/register"
-                  className="font-semibold text-brand-600 hover:text-brand-700"
-                >
-                  Create one
-                </Link>
-              </>
-            }
-          >
-            <form onSubmit={handleSubmit}>
-              <FormStack>
-                <Field label="Email" htmlFor="email">
-                  <Input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </Field>
-                <Field label="Password" htmlFor="password">
-                  <Input
-                    id="password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </Field>
-
-                <p className="text-right">
-                  <Link
-                    to="/forgot-password"
-                    className="text-sm font-medium text-brand-600 hover:text-brand-700"
-                  >
-                    Forgot password?
-                  </Link>
+      <div className="flex flex-1 items-start justify-center px-4 py-6 sm:py-10 lg:items-center lg:py-12">
+        <div className="w-full max-w-3xl space-y-4 sm:space-y-5 lg:max-w-md lg:space-y-0">
+          <section className="relative overflow-hidden rounded-2xl border border-brand-100/80 bg-gradient-to-br from-brand-900 via-brand-700 to-brand-600 p-4 shadow-sm sm:p-6 lg:hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(244,63,94,0.35),transparent_50%)]" />
+            <div className="relative space-y-4">
+              <p className="font-display text-xl font-bold tracking-tight text-white sm:text-2xl">
+                ApproveFlow
+              </p>
+              <div className="space-y-2">
+                <h2 className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
+                  Client approvals,
+                  <br />
+                  without the chaos.
+                </h2>
+                <p className="max-w-2xl text-sm leading-relaxed text-brand-100 sm:text-base">
+                  Track every handoff, comment, and sign-off in one workspace -
+                  from brief to done.
                 </p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-brand-200">
+                  How it works
+                </p>
+                <TaskWorkflowSteps variant="dark" />
+              </div>
+            </div>
+          </section>
 
-                <ErrorAlert message={error} />
+          <div className="glass-panel w-full p-6 sm:p-8">
+            <AuthFormLayout
+              title="Welcome back"
+              subtitle="Sign in to your workspace"
+              headingAs="h2"
+              footer={
+                <>
+                  No account?{' '}
+                  <Link
+                    to="/register"
+                    className="font-semibold text-brand-600 hover:text-brand-700"
+                  >
+                    Create one
+                  </Link>
+                </>
+              }
+            >
+              <form onSubmit={handleSubmit}>
+                <FormStack>
+                  <Field label="Email" htmlFor="email">
+                    <Input
+                      id="email"
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </Field>
+                  <Field label="Password" htmlFor="password">
+                    <Input
+                      id="password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </Field>
 
-                <FormActions>
-                  <Button type="submit" className="w-full" disabled={submitting}>
-                    {submitting ? 'Signing in…' : 'Sign in'}
-                  </Button>
-                </FormActions>
-              </FormStack>
-            </form>
-          </AuthFormLayout>
+                  <p className="text-right">
+                    <Link
+                      to="/forgot-password"
+                      className="text-sm font-medium text-brand-600 hover:text-brand-700"
+                    >
+                      Forgot password?
+                    </Link>
+                  </p>
+
+                  <ErrorAlert message={error} />
+
+                  <FormActions>
+                    <Button type="submit" className="w-full" disabled={submitting}>
+                      {submitting ? 'Signing in…' : 'Sign in'}
+                    </Button>
+                  </FormActions>
+                </FormStack>
+              </form>
+            </AuthFormLayout>
+          </div>
         </div>
       </div>
     </div>

@@ -182,7 +182,8 @@ export function Dropdown({
       ? Math.max(gap, rect.top - maxHeight - gap)
       : rect.bottom + gap;
 
-    const width = Math.max(rect.width, 220);
+    const viewportWidth = window.innerWidth - gap * 2;
+    const width = Math.min(viewportWidth, Math.max(rect.width, 220));
     const left =
       align === 'right'
         ? Math.min(rect.right, window.innerWidth - gap) - width

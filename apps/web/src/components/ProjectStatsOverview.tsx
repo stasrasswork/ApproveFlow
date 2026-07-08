@@ -26,7 +26,7 @@ function StatsGroup({
   };
 
   return (
-    <section className="flex h-full flex-col rounded-2xl border border-slate-200/70 bg-white/90 p-5 shadow-sm">
+    <section className="flex h-full flex-col rounded-2xl border border-slate-200/70 bg-white/90 p-4 shadow-sm sm:p-5">
       <div className="mb-4 flex items-start gap-3 border-b border-slate-100 pb-4">
         <span
           className={`mt-0.5 h-8 w-1 shrink-0 rounded-full ${barColors[accentBar]}`}
@@ -37,7 +37,7 @@ function StatsGroup({
           <p className="mt-0.5 text-xs text-slate-500">{hint}</p>
         </div>
       </div>
-      <div className="grid flex-1 grid-cols-2 divide-x divide-slate-100">
+      <div className="grid flex-1 grid-cols-1 divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
         {items.map((item) => (
           <div
             key={item.label}
@@ -47,7 +47,7 @@ function StatsGroup({
               {item.label}
             </p>
             <p
-              className={`mt-2 inline-flex min-w-[3.25rem] items-center justify-center rounded-xl px-3 py-1 font-display text-3xl font-bold tabular-nums tracking-tight ${STAT_VALUE_STYLES[item.accent]}`}
+              className={`mt-2 inline-flex min-w-[3.25rem] items-center justify-center rounded-xl px-3 py-1 font-display text-2xl font-bold tabular-nums tracking-tight sm:text-3xl ${STAT_VALUE_STYLES[item.accent]}`}
             >
               {item.value}
             </p>

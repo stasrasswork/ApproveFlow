@@ -30,7 +30,7 @@ export function ProjectActivityItem({
     return (
       <li className="flex gap-3 border-b border-slate-100 py-3 last:border-0">
         <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
-        <div>
+        <div className="min-w-0">
           {item.actorRole ? (
             <AuthorLine
               author={item.actor}
@@ -40,18 +40,18 @@ export function ProjectActivityItem({
           ) : (
             <p className="text-xs text-slate-500">{formatDateTime(item.occurredAt)}</p>
           )}
-          <p className="mt-1 text-sm text-slate-700">
+          <p className="mt-1 break-words text-sm text-slate-700">
             changed status on{' '}
             <Link to={taskLink} className="font-medium text-brand-600 hover:underline">
               {item.taskTitle}
             </Link>
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 break-words text-xs text-slate-500">
             {STATUS_LABELS[item.fromStatus]} → {STATUS_LABELS[item.toStatus]}
             {eventLabel ? ` · ${eventLabel}` : ''}
           </p>
           {item.comment ? (
-            <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+            <p className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
               {item.comment}
             </p>
           ) : null}
@@ -64,7 +64,7 @@ export function ProjectActivityItem({
     return (
       <li className="flex gap-3 border-b border-slate-100 py-3 last:border-0">
         <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
-        <div>
+        <div className="min-w-0">
           {item.authorRole ? (
             <AuthorLine
               author={item.author}
@@ -74,13 +74,15 @@ export function ProjectActivityItem({
           ) : (
             <p className="text-xs text-slate-500">{formatDateTime(item.occurredAt)}</p>
           )}
-          <p className="mt-1 text-sm text-slate-700">
+          <p className="mt-1 break-words text-sm text-slate-700">
             commented on{' '}
             <Link to={taskLink} className="font-medium text-brand-600 hover:underline">
               {item.taskTitle}
             </Link>
           </p>
-          <p className="mt-1 text-sm text-slate-600">{item.body}</p>
+          <p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-600">
+            {item.body}
+          </p>
         </div>
       </li>
     );
@@ -89,7 +91,7 @@ export function ProjectActivityItem({
   return (
     <li className="flex gap-3 border-b border-slate-100 py-3 last:border-0">
       <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
-      <div>
+      <div className="min-w-0">
         {item.changedByRole ? (
           <AuthorLine
             author={item.changedBy}
@@ -99,13 +101,13 @@ export function ProjectActivityItem({
         ) : (
           <p className="text-xs text-slate-500">{formatDateTime(item.occurredAt)}</p>
         )}
-        <p className="mt-1 text-sm text-slate-700">
+        <p className="mt-1 break-words text-sm text-slate-700">
           updated due date on{' '}
           <Link to={taskLink} className="font-medium text-brand-600 hover:underline">
             {item.taskTitle}
           </Link>
         </p>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 break-words text-xs text-slate-500">
           {formatDate(item.oldDueAt)} → {formatDate(item.newDueAt)}
           {item.reason ? ` · ${item.reason}` : ''}
         </p>
