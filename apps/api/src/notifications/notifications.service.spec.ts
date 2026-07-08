@@ -1,5 +1,5 @@
 import { NotificationType } from '../generated/prisma/client.js';
-import type { MailService } from '../mail/mail.service.js';
+import type { EmailOutboxService } from '../mail/email-outbox.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { NotificationsService } from './notifications.service.js';
 
@@ -28,9 +28,8 @@ describe('NotificationsService', () => {
       findMany: jest.Mock;
     };
   };
-  let mail: {
-    appUrl: jest.Mock;
-    send: jest.Mock;
+  let emailOutbox: {
+    enqueueHandoffEmails: jest.Mock;
   };
 
   beforeEach(() => {
@@ -46,13 +45,12 @@ describe('NotificationsService', () => {
         findMany: jest.fn(),
       },
     };
-    mail = {
-      appUrl: jest.fn((path: string) => `http://app.test${path}`),
-      send: jest.fn().mockResolvedValue(true),
+    emailOutbox = {
+      enqueueHandoffEmails: jest.fn().mockResolvedValue(undefined),
     };
     service = new NotificationsService(
       prisma as unknown as PrismaService,
-      mail as unknown as MailService,
+      emailOutbox as unknown as EmailOutboxService,
     );
     mockedListProjectMemberUserIds.mockReset();
   });
@@ -63,7 +61,13 @@ describe('NotificationsService', () => {
     const result = await service.list('user-1', 10);
 
     expect(prisma.notification.findMany).toHaveBeenCalledWith({
-      where: { userId: 'user-1' },
+      where: {
+        userId: 'user-1',
+        OR: [
+          { read: false },
+          { read: true, createdAt: { gte: expect.any(Date) } },
+        ],
+      },
       orderBy: { createdAt: 'desc' },
       take: 10,
     });
@@ -126,13 +130,17 @@ describe('NotificationsService', () => {
     });
   });
 
-  it('sends client handoff emails', async () => {
-    prisma.user.findMany.mockResolvedValue([
-      { email: 'client@test.local' },
-    ]);
+  it('enqueues client handoff emails', async () => {
+    await service.sendTaskClientHandoffEmails({
+      clientUserIds: ['client-1'],
+      workspaceId: 'ws-1',
+      taskId: 'task-1',
+      projectId: 'proj-1',
+      taskTitle: 'Banner',
+      projectName: 'Demo',
+    });
 
-    await service.sendTaskClientHandoffEmails(
-      prisma as unknown as PrismaService,
+    expect(emailOutbox.enqueueHandoffEmails).toHaveBeenCalledWith(
       {
         clientUserIds: ['client-1'],
         workspaceId: 'ws-1',
@@ -141,13 +149,7 @@ describe('NotificationsService', () => {
         taskTitle: 'Banner',
         projectName: 'Demo',
       },
-    );
-
-    expect(mail.send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: 'client@test.local',
-        subject: 'Task awaiting your review',
-      }),
+      'task-1',
     );
   });
 });

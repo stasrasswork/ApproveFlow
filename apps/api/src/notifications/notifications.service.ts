@@ -3,24 +3,31 @@ import {
   Notification,
   NotificationType,
 } from '../generated/prisma/client.js';
+import { EmailOutboxService } from '../mail/email-outbox.service.js';
 import { listProjectMemberUserIds } from '../common/index.js';
-import { MailService } from '../mail/mail.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 type NotifyDb = Pick<PrismaService, 'notification' | 'user' | 'projectMember'>;
 
 export type NotificationView = Notification;
 
+const READ_NOTIFICATION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mail: MailService,
+    private readonly emailOutbox: EmailOutboxService,
   ) {}
 
   async list(userId: string, limit = 50): Promise<NotificationView[]> {
+    const readCutoff = new Date(Date.now() - READ_NOTIFICATION_MAX_AGE_MS);
+
     return this.prisma.notification.findMany({
-      where: { userId },
+      where: {
+        userId,
+        OR: [{ read: false }, { read: true, createdAt: { gte: readCutoff } }],
+      },
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
@@ -100,37 +107,18 @@ export class NotificationsService {
     });
   }
 
-  async sendTaskClientHandoffEmails(
-    db: Pick<PrismaService, 'user'>,
-    params: {
-      clientUserIds: string[];
-      workspaceId: string;
-      taskId: string;
-      projectId: string;
-      taskTitle: string;
-      projectName: string;
-    },
-  ): Promise<void> {
+  async sendTaskClientHandoffEmails(params: {
+    clientUserIds: string[];
+    workspaceId: string;
+    taskId: string;
+    projectId: string;
+    taskTitle: string;
+    projectName: string;
+  }): Promise<void> {
     if (params.clientUserIds.length === 0) {
       return;
     }
 
-    const title = 'Task awaiting your review';
-    const body = `"${params.taskTitle}" in ${params.projectName} was sent to you for approval.`;
-    const link = `/w/${params.workspaceId}/projects/${params.projectId}/tasks/${params.taskId}`;
-
-    const users = await db.user.findMany({
-      where: { id: { in: params.clientUserIds } },
-      select: { email: true },
-    });
-
-    for (const user of users) {
-      const url = this.mail.appUrl(link);
-      await this.mail.send({
-        to: user.email,
-        subject: title,
-        text: `${body}\n\nOpen: ${url}`,
-      });
-    }
+    await this.emailOutbox.enqueueHandoffEmails(params, params.taskId);
   }
 }
