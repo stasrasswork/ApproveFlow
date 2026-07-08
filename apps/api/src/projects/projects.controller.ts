@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Patch,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -19,7 +20,7 @@ import {
   CurrentUser,
 } from '../auth/current-user.decorator.js';
 import type { ClientOutsideProject } from '../common/index.js';
-import { UpdateProjectDto } from './dto/index.js';
+import { ProjectActivityQueryDto, UpdateProjectDto } from './dto/index.js';
 import {
   ProjectActivityItem,
   ProjectStats,
@@ -84,7 +85,13 @@ export class ProjectsController {
   getActivity(
     @CurrentUser() user: AuthUser,
     @Param('id') projectId: string,
-  ): Promise<ProjectActivityItem[]> {
-    return this.projectsService.getActivity(projectId, user.userId);
+    @Query() query: ProjectActivityQueryDto,
+  ): Promise<{ items: ProjectActivityItem[]; nextCursor: string | null }> {
+    return this.projectsService.getActivity(
+      projectId,
+      user.userId,
+      query.limit,
+      query.cursor,
+    );
   }
 }

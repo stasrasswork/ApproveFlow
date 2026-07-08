@@ -22,6 +22,12 @@ import {
 } from '../common/index.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateProjectDto, UpdateProjectDto } from './dto/index.js';
+import {
+  buildActivityCursorWhere,
+  compareActivityItems,
+  decodeActivityCursor,
+  encodeActivityCursor,
+} from './activity-cursor.js';
 
 export type ProjectStats = {
   clientHandoff: number;
@@ -159,7 +165,9 @@ export class ProjectsService {
   async getActivity(
     projectId: string,
     userId: string,
-  ): Promise<ProjectActivityItem[]> {
+    limit = 50,
+    cursor?: string,
+  ): Promise<{ items: ProjectActivityItem[]; nextCursor: string | null }> {
     const { workspaceId, role } = await loadProjectAndAssertAccess(
       this.prisma,
       projectId,
@@ -168,27 +176,37 @@ export class ProjectsService {
     const taskWhere = buildTaskListWhere(projectId, role, userId);
     const roleByUserId = await loadWorkspaceRoleMap(this.prisma, workspaceId);
 
+    const parsedCursor = cursor ? decodeActivityCursor(cursor) : null;
+    const cursorWhere = buildActivityCursorWhere(parsedCursor);
+    const fetchLimit = limit + 1;
+
     const [events, comments, dueChanges] = await Promise.all([
       this.prisma.taskEvent.findMany({
-        where: { task: taskWhere },
+        where: { task: taskWhere, ...cursorWhere },
         include: {
           task: { select: { id: true, title: true } },
           actor: { select: userBriefSelect },
         },
+        take: fetchLimit,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       }),
       this.prisma.comment.findMany({
-        where: { task: taskWhere },
+        where: { task: taskWhere, ...cursorWhere },
         include: {
           task: { select: { id: true, title: true } },
           author: { select: userBriefSelect },
         },
+        take: fetchLimit,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       }),
       this.prisma.taskDueChange.findMany({
-        where: { task: taskWhere },
+        where: { task: taskWhere, ...cursorWhere },
         include: {
           task: { select: { id: true, title: true } },
           changedBy: { select: userBriefSelect },
         },
+        take: fetchLimit,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       }),
     ]);
 
@@ -231,8 +249,20 @@ export class ProjectsService {
       })),
     ];
 
-    items.sort((left, right) => right.occurredAt.getTime() - left.occurredAt.getTime());
-    return items;
+    items.sort(compareActivityItems);
+    const page = items.slice(0, limit);
+    const hasMore = items.length > limit;
+    const lastItem = page.length > 0 ? page[page.length - 1] : undefined;
+    const nextCursor =
+      hasMore && lastItem
+        ? encodeActivityCursor({
+            occurredAt: lastItem.occurredAt.toISOString(),
+            id: lastItem.id,
+            type: lastItem.type,
+          })
+        : null;
+
+    return { items: page, nextCursor };
   }
 
   async getClientsOutside(

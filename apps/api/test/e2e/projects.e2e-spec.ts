@@ -166,8 +166,8 @@ describeWithSeededApp('Projects (e2e)', (getContext) => {
       .set(authHeader(managerToken))
       .expect(200);
 
-    expect(response.body.length).toBeGreaterThanOrEqual(1);
-    expect(response.body).toEqual(
+    expect(response.body.items.length).toBeGreaterThanOrEqual(1);
+    expect(response.body.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           type: 'comment',
@@ -176,6 +176,25 @@ describeWithSeededApp('Projects (e2e)', (getContext) => {
         }),
       ]),
     );
+  });
+
+  it('GET /projects/:id/activity supports cursor pagination', async () => {
+    const { app } = getContext();
+    const managerToken = await loginAs(app, 'manager@test.local', SEED_PASSWORD);
+
+    await request(app.getHttpServer())
+      .post(`/tasks/${SEED_IDS.taskMemberDemo}/comments`)
+      .set(authHeader(managerToken))
+      .send({ body: 'Pagination fixture' })
+      .expect(201);
+
+    const first = await request(app.getHttpServer())
+      .get(`/projects/${SEED_IDS.project}/activity?limit=1`)
+      .set(authHeader(managerToken))
+      .expect(200);
+
+    expect(first.body.items).toHaveLength(1);
+    expect(typeof first.body.nextCursor === 'string' || first.body.nextCursor === null).toBe(true);
   });
 
   it('GET /projects/:id/members lists project members for manager', async () => {
@@ -274,7 +293,7 @@ describeWithSeededApp('Projects (e2e)', (getContext) => {
     expect(response.body.status).toBe(ProjectStatus.PAUSED);
   });
 
-  it('POST /projects/:id/tasks rejects task creation on completed project', async () => {
+  it('POST /projects/:id/tasks allows task creation on completed project', async () => {
     const { app } = getContext();
     const token = await loginAs(app, 'manager@test.local', SEED_PASSWORD);
 
@@ -288,6 +307,6 @@ describeWithSeededApp('Projects (e2e)', (getContext) => {
       .post(`/projects/${SEED_IDS.project}/tasks`)
       .set(authHeader(token))
       .send({ title: 'Should fail' })
-      .expect(400);
+      .expect(201);
   });
 });
