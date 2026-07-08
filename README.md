@@ -76,10 +76,12 @@ npm run dev:web   # terminal 2
 | `npm run dev:api` | API dev server |
 | `npm run dev:web` | Web dev server |
 | `npm run build` | Build API + web |
+| `npm run build:shared` | Build shared package only |
 | `npm run lint` | Lint API + web |
 | `npm run test` | Unit tests (API + web) |
 | `npm run test:api` | API unit + e2e |
 | `npm run test:web` | Web unit tests |
+| `npm run codegen:openapi` | Export API schema and regenerate shared OpenAPI types |
 
 ## First-time user flow
 
