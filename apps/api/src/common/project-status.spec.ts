@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { ProjectStatus } from '../generated/prisma/client.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { assertProjectAllowsTaskChanges } from './project-status.js';
@@ -22,20 +22,20 @@ describe('assertProjectAllowsTaskChanges', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('throws when project is completed', async () => {
+  it('allows completed projects (informational status)', async () => {
     const prisma = createMockPrisma(ProjectStatus.COMPLETED);
 
     await expect(
       assertProjectAllowsTaskChanges(prisma, 'proj-1'),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).resolves.toBeUndefined();
   });
 
-  it('throws when project is paused', async () => {
+  it('allows paused projects (informational status)', async () => {
     const prisma = createMockPrisma(ProjectStatus.PAUSED);
 
     await expect(
       assertProjectAllowsTaskChanges(prisma, 'proj-1'),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).resolves.toBeUndefined();
   });
 
   it('allows active projects', async () => {

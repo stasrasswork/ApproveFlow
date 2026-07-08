@@ -1,5 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { ProjectStatus } from '../generated/prisma/client.js';
+import { NotFoundException } from '@nestjs/common';
 import type { PrismaService } from '../prisma/prisma.service.js';
 
 export async function assertProjectAllowsTaskChanges(
@@ -15,15 +14,6 @@ export async function assertProjectAllowsTaskChanges(
     throw new NotFoundException(`Project ${projectId} not found`);
   }
 
-  if (project.status === ProjectStatus.COMPLETED) {
-    throw new BadRequestException(
-      'Task changes are not allowed on a completed project',
-    );
-  }
-
-  if (project.status === ProjectStatus.PAUSED) {
-    throw new BadRequestException(
-      'Task changes are not allowed while the project is paused',
-    );
-  }
+  // Project status (ACTIVE / PAUSED / COMPLETED) is informational-only in MVP.
+  // Task and comment mutations are governed by the task transition matrix only.
 }
