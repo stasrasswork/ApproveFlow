@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react';
 import type { AllowedTransitions, ClientOutsideProject } from '../../api/types';
-import { ClientHandoffHint } from '../ClientHandoffHint';
+import { ClientHandoffPicker } from '../ClientHandoffPicker';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { DueDatePickerPanel } from '../ui/DueDatePicker';
@@ -10,7 +10,10 @@ import { Textarea, Field, FormStack, FormActions } from '../ui/Form';
 type TaskActionsSectionProps = {
   showActionsCard: boolean;
   transitionError: string | null;
-  clientsOutside: ClientOutsideProject[];
+  handoffClients: ClientOutsideProject[];
+  showHandoffPicker: boolean;
+  selectedHandoffClientIds: string[];
+  onHandoffClientsChange: (clientUserIds: string[]) => void;
   showTransitions: boolean;
   transitions: AllowedTransitions | undefined;
   canSetDueDate: boolean;
@@ -36,7 +39,10 @@ type TaskActionsSectionProps = {
 export function TaskActionsSection({
   showActionsCard,
   transitionError,
-  clientsOutside,
+  handoffClients,
+  showHandoffPicker,
+  selectedHandoffClientIds,
+  onHandoffClientsChange,
   showTransitions,
   transitions,
   canSetDueDate,
@@ -65,7 +71,14 @@ export function TaskActionsSection({
           {transitionError ? (
             <ErrorAlert message={transitionError} className="mb-3" />
           ) : null}
-          <ClientHandoffHint clients={clientsOutside} />
+          {showHandoffPicker ? (
+            <ClientHandoffPicker
+              clients={handoffClients}
+              selectedClientIds={selectedHandoffClientIds}
+              onChange={onHandoffClientsChange}
+              disabled={transitionPending || updateDuePending}
+            />
+          ) : null}
           <div className="mt-3 flex flex-wrap gap-2">
             {showTransitions
               ? transitions!.targets.map((target) => (

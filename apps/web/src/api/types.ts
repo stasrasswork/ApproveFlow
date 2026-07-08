@@ -131,6 +131,11 @@ export type ProjectActivityItem =
       reason: string | null;
     };
 
+export type ProjectActivityPage = {
+  items: ProjectActivityItem[];
+  nextCursor: string | null;
+};
+
 export type ProjectMember = {
   id: string;
   projectId: string;

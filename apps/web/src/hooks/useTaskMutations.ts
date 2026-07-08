@@ -27,10 +27,12 @@ export function useTaskMutations(
     mutationFn: ({
       to,
       comment,
+      clientUserIds,
     }: {
       to: TaskStatus;
       comment?: string;
-    }) => tasksApi.transition(taskId, to, comment),
+      clientUserIds?: string[];
+    }) => tasksApi.transition(taskId, to, { comment, clientUserIds }),
     onSuccess: () => {
       onTransitionError(null);
       invalidateTask();
