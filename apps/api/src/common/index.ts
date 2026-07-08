@@ -8,7 +8,7 @@ export {
   MANAGE_PROJECTS_FORBIDDEN,
 } from './project-access.js';
 export {
-  ensureWorkspaceClientsInProject,
+  ensureProjectClients,
   listClientsOutsideProject,
   listProjectClientUserIds,
   listProjectMemberUserIds,

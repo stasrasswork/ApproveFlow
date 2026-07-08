@@ -1,6 +1,6 @@
 import type { PrismaService } from '../../src/prisma/prisma.service.js';
 import {
-  ensureWorkspaceClientsInProject,
+  ensureProjectClients,
   listClientsOutsideProject,
   listProjectClientUserIds,
   listProjectMemberUserIds,
@@ -47,25 +47,30 @@ describe('client-project-access', () => {
     expect(result[0].userId).toBe('client-1');
   });
 
-  it('adds missing clients to project', async () => {
+  it('adds selected clients to project', async () => {
     const prisma = createMockPrisma();
     (prisma.workspaceMember.findMany as jest.Mock).mockResolvedValue([
-      {
-        userId: 'client-1',
-        user: { id: 'client-1', email: 'c@test.local', name: 'Client' },
-      },
+      { userId: 'client-1' },
     ]);
-    (prisma.projectMember.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.projectMember.createMany as jest.Mock).mockResolvedValue({ count: 1 });
 
-    const added = await ensureWorkspaceClientsInProject(
+    await ensureProjectClients(
       prisma,
       'proj-1',
       'ws-1',
+      ['client-1'],
     );
 
-    expect(added).toEqual(['client-1']);
     expect(prisma.projectMember.createMany).toHaveBeenCalled();
+  });
+
+  it('rejects non-client users when selecting project clients', async () => {
+    const prisma = createMockPrisma();
+    (prisma.workspaceMember.findMany as jest.Mock).mockResolvedValue([]);
+
+    await expect(
+      ensureProjectClients(prisma, 'proj-1', 'ws-1', ['member-1']),
+    ).rejects.toThrow('Users are not client members of this workspace');
   });
 
   it('lists client viewers already on the project', async () => {

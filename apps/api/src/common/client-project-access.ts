@@ -1,3 +1,6 @@
+import {
+  BadRequestException,
+} from '@nestjs/common';
 import { WorkspaceRole } from '../generated/prisma/client.js';
 import { userBriefSelect, type UserBrief } from './user-brief.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
@@ -35,30 +38,38 @@ export async function listClientsOutsideProject(
     }));
 }
 
-export async function ensureWorkspaceClientsInProject(
+export async function ensureProjectClients(
   prisma: PrismaClient,
   projectId: string,
   workspaceId: string,
-): Promise<string[]> {
-  const outside = await listClientsOutsideProject(
-    prisma,
-    projectId,
-    workspaceId,
-  );
+  clientUserIds: string[],
+): Promise<void> {
+  const uniqueClientIds = [...new Set(clientUserIds)];
+  if (uniqueClientIds.length === 0) {
+    return;
+  }
 
-  if (outside.length === 0) {
-    return [];
+  const workspaceClients = await prisma.workspaceMember.findMany({
+    where: {
+      workspaceId,
+      role: WorkspaceRole.CLIENT_VIEW,
+      userId: { in: uniqueClientIds },
+    },
+    select: { userId: true },
+  });
+
+  const available = new Set(workspaceClients.map((member) => member.userId));
+  const invalid = uniqueClientIds.filter((id) => !available.has(id));
+  if (invalid.length > 0) {
+    throw new BadRequestException(
+      `Users are not client members of this workspace: ${invalid.join(', ')}`,
+    );
   }
 
   await prisma.projectMember.createMany({
-    data: outside.map((client) => ({
-      projectId,
-      userId: client.userId,
-    })),
+    data: uniqueClientIds.map((userId) => ({ projectId, userId })),
     skipDuplicates: true,
   });
-
-  return outside.map((client) => client.userId);
 }
 
 export async function listProjectClientUserIds(

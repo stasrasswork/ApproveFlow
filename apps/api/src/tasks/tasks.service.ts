@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -15,11 +16,10 @@ import {
 import {
   assertAssigneeInProject,
   assertAgencyRole,
-  assertCanAccessTask as assertTaskAccessById,
   assertProjectAccess,
   assertProjectAllowsTaskChanges,
   buildTaskListWhere,
-  ensureWorkspaceClientsInProject,
+  ensureProjectClients,
   listProjectClientUserIds,
   loadProjectAndAssertAccess,
   userBriefSelect,
@@ -71,6 +71,8 @@ export type { AllowedTransitionTarget };
 
 @Injectable()
 export class TasksService {
+  private readonly logger = new Logger(TasksService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
@@ -186,14 +188,6 @@ export class TasksService {
     return view;
   }
 
-  async assertCanAccessTask(
-    taskId: string,
-    userId: string,
-  ): Promise<string> {
-    const context = await assertTaskAccessById(this.prisma, taskId, userId);
-    return context.workspaceId;
-  }
-
   async transition(
     taskId: string,
     userId: string,
@@ -225,7 +219,7 @@ export class TasksService {
     const commentText = dto.comment?.trim();
     const fromStatus = task.status;
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       if (
         resolved.approvalType === ClientApprovalType.CHANGES_REQUESTED &&
         commentText
@@ -241,16 +235,21 @@ export class TasksService {
 
       let clientUserIds: string[] = [];
       if (dto.to === TaskStatus.CLIENT_HANDOFF) {
-        await ensureWorkspaceClientsInProject(
-          tx,
-          task.project.id,
-          task.project.workspaceId,
-        );
-        clientUserIds = await listProjectClientUserIds(
-          tx,
-          task.project.id,
-          task.project.workspaceId,
-        );
+        if ((dto.clientUserIds?.length ?? 0) > 0) {
+          await ensureProjectClients(
+            tx,
+            task.project.id,
+            task.project.workspaceId,
+            dto.clientUserIds!,
+          );
+          clientUserIds = [...new Set(dto.clientUserIds!)];
+        } else {
+          clientUserIds = await listProjectClientUserIds(
+            tx,
+            task.project.id,
+            task.project.workspaceId,
+          );
+        }
       }
 
       await tx.taskEvent.create({
@@ -292,22 +291,39 @@ export class TasksService {
         dto.to,
       );
 
-      if (dto.to === TaskStatus.CLIENT_HANDOFF && clientUserIds.length > 0) {
-        await this.notifications.sendTaskClientHandoffEmails(tx, {
-          clientUserIds,
-          workspaceId: project.workspaceId,
-          taskId,
-          projectId: task.project.id,
-          taskTitle: task.title,
-          projectName: project.name,
-        });
-      }
-
-      return tx.task.findUniqueOrThrow({
+      const taskView = await tx.task.findUniqueOrThrow({
         where: { id: taskId },
         include: taskViewInclude,
       });
+
+      return {
+        taskView,
+        mailContext:
+          dto.to === TaskStatus.CLIENT_HANDOFF && clientUserIds.length > 0
+            ? {
+                clientUserIds,
+                workspaceId: project.workspaceId,
+                taskId,
+                projectId: task.project.id,
+                taskTitle: task.title,
+                projectName: project.name,
+              }
+            : null,
+      };
     });
+
+    if (result.mailContext) {
+      try {
+        await this.notifications.sendTaskClientHandoffEmails(result.mailContext);
+      } catch (error) {
+        this.logger.error(
+          `Failed to send handoff emails for task ${taskId}`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    return result.taskView;
   }
 
   async getAllowedTransitions(

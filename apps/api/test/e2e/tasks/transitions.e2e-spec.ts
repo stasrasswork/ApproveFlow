@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { MailService } from '../../../src/mail/mail.service.js';
 import { TaskStatus } from '../../../src/generated/prisma/client.js';
 import { authHeader, loginAs } from '../../helpers/auth.js';
 import { describeWithSeededApp } from '../../helpers/seeded-app.js';
@@ -173,5 +174,45 @@ describeWithSeededApp('Task transitions (e2e)', (getContext) => {
 
       expect(response.body.status).toBe(to);
     }
+  });
+
+  it('keeps status transition committed when SMTP send fails', async () => {
+    const { app } = getContext();
+    const managerToken = await loginAs(app, 'manager@test.local', SEED_PASSWORD);
+    const mailService = app.get(MailService);
+    const sendSpy = jest.spyOn(mailService, 'send').mockRejectedValueOnce(
+      new Error('SMTP unavailable'),
+    );
+
+    const createResponse = await request(app.getHttpServer())
+      .post(`/projects/${SEED_IDS.project}/tasks`)
+      .set(authHeader(managerToken))
+      .send({ title: 'SMTP resilience task' })
+      .expect(201);
+
+    const taskId = createResponse.body.id as string;
+    await request(app.getHttpServer())
+      .patch(`/tasks/${taskId}/status`)
+      .set(authHeader(managerToken))
+      .send({ to: TaskStatus.PRODUCTION })
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch(`/tasks/${taskId}/status`)
+      .set(authHeader(managerToken))
+      .send({ to: TaskStatus.INTERNAL_REVIEW })
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch(`/tasks/${taskId}/status`)
+      .set(authHeader(managerToken))
+      .send({ to: TaskStatus.CLIENT_HANDOFF, clientUserIds: [SEED_IDS.client] })
+      .expect(200);
+
+    const task = await request(app.getHttpServer())
+      .get(`/tasks/${taskId}`)
+      .set(authHeader(managerToken))
+      .expect(200);
+    expect(task.body.status).toBe(TaskStatus.CLIENT_HANDOFF);
+
+    sendSpy.mockRestore();
   });
 });

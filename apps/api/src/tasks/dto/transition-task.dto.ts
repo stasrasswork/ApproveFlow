@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsEnum,
   IsOptional,
   IsString,
@@ -14,4 +15,9 @@ export class TransitionTaskDto {
   @IsString()
   @MaxLength(10_000)
   comment?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  clientUserIds?: string[];
 }
