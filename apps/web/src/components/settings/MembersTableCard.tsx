@@ -1,11 +1,11 @@
 import type { WorkspaceMember, WorkspaceRole } from '../../api/types';
 import { userDisplayName } from '../../lib/format';
 import { ROLE_LABELS } from '../../lib/roles';
-import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Dropdown } from '../ui/Dropdown';
 import { LoadingState } from '../ui/LoadingState';
 import { PageError } from '../ui/PageError';
+import { MemberRowActions } from './MemberRowActions';
 
 type DropdownOption = { value: string; label: string };
 
@@ -78,21 +78,19 @@ export function MembersTableCard({
                       </span>
                     )}
                   </div>
-                  {canRemove && member.userId !== currentUserId ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="text-rose-600 hover:text-rose-700"
-                      disabled={removePending}
-                      onClick={() =>
+                  {canRemove ? (
+                    <MemberRowActions
+                      canRemove={canRemove}
+                      isCurrentUser={member.userId === currentUserId}
+                      removePending={removePending}
+                      layout="card"
+                      onRemove={() =>
                         onRemoveMember({
                           userId: member.userId,
                           name: userDisplayName(member.user),
                         })
                       }
-                    >
-                      Remove
-                    </Button>
+                    />
                   ) : null}
                 </div>
               </li>
@@ -137,22 +135,17 @@ export function MembersTableCard({
                   </td>
                   {canRemove ? (
                     <td className="py-3 text-right">
-                      {member.userId !== currentUserId ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="text-rose-600 hover:text-rose-700"
-                          disabled={removePending}
-                          onClick={() =>
-                            onRemoveMember({
-                              userId: member.userId,
-                              name: userDisplayName(member.user),
-                            })
-                          }
-                        >
-                          Remove
-                        </Button>
-                      ) : null}
+                      <MemberRowActions
+                        canRemove={canRemove}
+                        isCurrentUser={member.userId === currentUserId}
+                        removePending={removePending}
+                        onRemove={() =>
+                          onRemoveMember({
+                            userId: member.userId,
+                            name: userDisplayName(member.user),
+                          })
+                        }
+                      />
                     </td>
                   ) : null}
                 </tr>

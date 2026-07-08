@@ -80,6 +80,8 @@ function DropdownMenu({
   onChange,
   onClose,
   position,
+  highlightedIndex,
+  onHighlight,
 }: {
   listId: string;
   options: DropdownOption[];
@@ -87,6 +89,8 @@ function DropdownMenu({
   onChange: (value: string) => void;
   onClose: () => void;
   position: MenuPosition;
+  highlightedIndex: number;
+  onHighlight: (index: number) => void;
 }) {
   return createPortal(
     <div
@@ -100,8 +104,9 @@ function DropdownMenu({
       }}
     >
       <ul id={listId} role="listbox" className="max-h-full overflow-y-auto">
-        {options.map((option) => {
+        {options.map((option, index) => {
           const isSelected = option.value === value;
+          const isHighlighted = index === highlightedIndex;
           return (
             <li key={option.value || '__empty'} role="none">
               <button
@@ -113,10 +118,13 @@ function DropdownMenu({
                   onClose();
                 }}
                 className={`flex w-full items-start gap-2.5 rounded-xl px-3 py-2.5 text-left transition ${
-                  isSelected
+                  isHighlighted
+                    ? 'bg-slate-100 text-slate-900'
+                    : isSelected
                     ? 'bg-brand-50 text-brand-900'
                     : 'text-slate-700 hover:bg-slate-50'
                 }`}
+                onMouseEnter={() => onHighlight(index)}
               >
                 <span className="mt-0.5 w-4 shrink-0">
                   {isSelected ? <CheckIcon /> : null}
@@ -154,6 +162,7 @@ export function Dropdown({
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listId = useId();
@@ -241,7 +250,43 @@ export function Dropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          const selectedIndex = options.findIndex((option) => option.value === value);
+          setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
+          setOpen((current) => !current);
+        }}
+        onKeyDown={(event) => {
+          if (options.length === 0) {
+            return;
+          }
+          if (!open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+            event.preventDefault();
+            const selectedIndex = options.findIndex((option) => option.value === value);
+            setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
+            setOpen(true);
+            return;
+          }
+          if (!open) {
+            return;
+          }
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setHighlightedIndex((index) => (index + 1) % options.length);
+          } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setHighlightedIndex((index) => (index - 1 + options.length) % options.length);
+          } else if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            const option = options[highlightedIndex];
+            if (option) {
+              onChange(option.value);
+              setOpen(false);
+            }
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            setOpen(false);
+          }
+        }}
         className={`flex items-center justify-between gap-2 text-left ${fieldClass} ${size === 'sm' ? 'h-10 min-h-10' : ''} ${triggerClassName}`}
       >
         <span className="min-w-0 flex-1 truncate">
@@ -269,6 +314,8 @@ export function Dropdown({
           onChange={onChange}
           onClose={() => setOpen(false)}
           position={menuPosition}
+          highlightedIndex={highlightedIndex}
+          onHighlight={setHighlightedIndex}
         />
       ) : null}
     </div>
