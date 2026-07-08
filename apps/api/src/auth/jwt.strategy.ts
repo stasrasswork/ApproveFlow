@@ -7,6 +7,7 @@ import { JWT_SECRET } from './auth.constants.js';
 type JwtPayload = {
   sub: string;
   typ?: 'access' | 'refresh';
+  ver?: number;
 };
 
 @Injectable()
@@ -30,11 +31,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
+      select: { id: true, tokenVersion: true },
     });
 
     if (!user) {
       throw new UnauthorizedException('Invalid token');
     }
+
+    if (payload.ver === undefined || payload.ver !== user.tokenVersion) {
+      throw new UnauthorizedException('Invalid token');
+    }
+
     return { userId: payload.sub };
   }
 }

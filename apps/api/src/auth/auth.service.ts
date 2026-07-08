@@ -9,6 +9,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { hash, verify } from 'argon2';
 import { WorkspaceRole } from '../generated/prisma/client.js';
 import { userBriefSelect, normalizeEmail } from '../common/index.js';
+import { ENV } from '../config/env.js';
 import { MailService } from '../mail/mail.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { WorkspaceInvitesService } from '../invites/workspace-invites.service.js';
@@ -62,6 +63,7 @@ export type MeResult = SafeUser & {
 type TokenPayload = {
   sub: string;
   typ: 'access' | 'refresh';
+  ver: number;
 };
 
 @Injectable()
@@ -123,7 +125,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.signTokens(user.id);
+    return this.signTokens(user.id, user.tokenVersion);
   }
 
   async register(registerDto: RegisterDto): Promise<RegisterResult> {
@@ -237,7 +239,11 @@ export class AuthService {
       text: `Use this link to reset your password (valid for 1 hour):\n${resetUrl}`,
     });
 
-    if (!sent || process.env.NODE_ENV !== 'production') {
+    if (
+      !sent ||
+      ENV.NODE_ENV === 'test' ||
+      (ENV.EXPOSE_DEBUG_TOKENS && ENV.NODE_ENV !== 'production')
+    ) {
       return { message, resetToken: rawToken };
     }
 
@@ -257,7 +263,10 @@ export class AuthService {
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: record.userId },
-        data: { passwordHash: await hash(dto.password) },
+        data: {
+          passwordHash: await hash(dto.password),
+          tokenVersion: { increment: 1 },
+        },
       }),
       this.prisma.passwordResetToken.deleteMany({
         where: { userId: record.userId },
@@ -290,7 +299,18 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    return this.signTokens(user.id);
+    if (payload.ver !== user.tokenVersion) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    return this.signTokens(user.id, user.tokenVersion);
+  }
+
+  async logout(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { tokenVersion: { increment: 1 } },
+    });
   }
 
   private hashResetToken(token: string): string {
@@ -308,11 +328,18 @@ export class AuthService {
     }
   }
 
-  private async signTokens(userId: string): Promise<AuthTokens> {
+  private async signTokens(
+    userId: string,
+    tokenVersion: number,
+  ): Promise<AuthTokens> {
     const [access_token, refresh_token] = await Promise.all([
-      this.jwtService.signAsync({ sub: userId, typ: 'access' } satisfies TokenPayload),
+      this.jwtService.signAsync({
+        sub: userId,
+        typ: 'access',
+        ver: tokenVersion,
+      } satisfies TokenPayload),
       this.jwtService.signAsync(
-        { sub: userId, typ: 'refresh' } satisfies TokenPayload,
+        { sub: userId, typ: 'refresh', ver: tokenVersion } satisfies TokenPayload,
         { expiresIn: '7d' },
       ),
     ]);

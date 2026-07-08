@@ -100,11 +100,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [refreshUser],
   );
 
-  const logout = useCallback(() => {
-    clearTokens();
-    setUser(null);
-    setActiveWorkspaceIdState(null);
-    localStorage.removeItem(WORKSPACE_STORAGE_KEY);
+  const logout = useCallback(async () => {
+    try {
+      if (getAccessToken()) {
+        await authApi.logout();
+      }
+    } catch {
+      // Local session is cleared even when revocation fails.
+    } finally {
+      clearTokens();
+      setUser(null);
+      setActiveWorkspaceIdState(null);
+      localStorage.removeItem(WORKSPACE_STORAGE_KEY);
+    }
   }, []);
 
   const setActiveWorkspaceId = useCallback((id: string) => {

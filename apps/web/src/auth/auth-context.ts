@@ -9,7 +9,7 @@ export type AuthContextValue = {
   activeWorkspace: MeWorkspace | null;
   setActiveWorkspaceId: (id: string) => void;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };
 

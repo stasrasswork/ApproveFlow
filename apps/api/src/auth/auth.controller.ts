@@ -95,6 +95,15 @@ export class AuthController {
   }
 
   @SkipThrottle()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Post('logout')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Invalidate current session tokens' })
+  logout(@CurrentUser() user: AuthUser): Promise<void> {
+    return this.authService.logout(user.userId);
+  }
+
+  @SkipThrottle()
   @Get('me')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Current user profile and workspaces' })

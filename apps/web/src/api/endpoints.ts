@@ -8,7 +8,7 @@ import type {
   MeResult,
   Notification,
   Project,
-  ProjectActivityItem,
+  ProjectActivityPage,
   ProjectMember,
   ProjectStats,
   ProjectStatus,
@@ -56,6 +56,11 @@ export const authApi = {
     apiFetch<{ message: string }>('/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify({ token, password }),
+    }),
+
+  logout: () =>
+    apiFetch<void>('/auth/logout', {
+      method: 'POST',
     }),
 };
 
@@ -130,8 +135,19 @@ export const projectsApi = {
 
   stats: (id: string) => apiFetch<ProjectStats>(`/projects/${id}/stats`),
 
-  activity: (id: string) =>
-    apiFetch<ProjectActivityItem[]>(`/projects/${id}/activity`),
+  activity: (id: string, params?: { limit?: number; cursor?: string }) => {
+    const search = new URLSearchParams();
+    if (params?.limit) {
+      search.set('limit', String(params.limit));
+    }
+    if (params?.cursor) {
+      search.set('cursor', params.cursor);
+    }
+    const query = search.toString();
+    return apiFetch<ProjectActivityPage>(
+      `/projects/${id}/activity${query ? `?${query}` : ''}`,
+    );
+  },
 
   clientsOutside: (id: string) =>
     apiFetch<ClientOutsideProject[]>(`/projects/${id}/clients-outside`),
@@ -189,10 +205,18 @@ export const tasksApi = {
   allowedTransitions: (id: string) =>
     apiFetch<AllowedTransitions>(`/tasks/${id}/allowed-transitions`),
 
-  transition: (id: string, to: TaskStatus, comment?: string) =>
+  transition: (
+    id: string,
+    to: TaskStatus,
+    options?: { comment?: string; clientUserIds?: string[] },
+  ) =>
     apiFetch<TaskView>(`/tasks/${id}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ to, comment }),
+      body: JSON.stringify({
+        to,
+        comment: options?.comment,
+        clientUserIds: options?.clientUserIds,
+      }),
     }),
 
   updateDue: (id: string, dueAt: string | null, reason?: string) =>
