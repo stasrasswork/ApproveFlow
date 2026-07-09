@@ -4,14 +4,14 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import { NotificationsService } from './notifications.service.js';
 
 jest.mock('../common/index.js', () => ({
-  listProjectMemberUserIds: jest.fn(),
+  listWorkspaceMemberUserIds: jest.fn(),
 }));
 
-import { listProjectMemberUserIds } from '../common/index.js';
+import { listWorkspaceMemberUserIds } from '../common/index.js';
 
-const mockedListProjectMemberUserIds =
-  listProjectMemberUserIds as jest.MockedFunction<
-    typeof listProjectMemberUserIds
+const mockedListWorkspaceMemberUserIds =
+  listWorkspaceMemberUserIds as jest.MockedFunction<
+    typeof listWorkspaceMemberUserIds
   >;
 
 describe('NotificationsService', () => {
@@ -52,7 +52,7 @@ describe('NotificationsService', () => {
       prisma as unknown as PrismaService,
       emailOutbox as unknown as EmailOutboxService,
     );
-    mockedListProjectMemberUserIds.mockReset();
+    mockedListWorkspaceMemberUserIds.mockReset();
   });
 
   it('lists notifications for user', async () => {
@@ -74,39 +74,42 @@ describe('NotificationsService', () => {
     expect(result).toEqual([{ id: 'n-1' }]);
   });
 
-  it('notifies project members except actor', async () => {
-    mockedListProjectMemberUserIds.mockResolvedValue(['user-2', 'user-3']);
+  it('notifies all workspace members without duplicates', async () => {
+    mockedListWorkspaceMemberUserIds.mockResolvedValue([
+      'user-1',
+      'user-2',
+      'user-2',
+    ]);
 
-    await service.notifyProjectMembers(prisma as unknown as PrismaService, {
+    await service.notifyWorkspaceMembers(prisma as unknown as PrismaService, {
       workspaceId: 'ws-1',
       projectId: 'proj-1',
       taskId: 'task-1',
-      actorUserId: 'user-1',
+      excludeUserId: 'user-1',
       title: 'Updated',
       body: 'Task changed',
       type: NotificationType.TASK_UPDATE,
     });
 
+    expect(mockedListWorkspaceMemberUserIds).toHaveBeenCalledWith(prisma, 'ws-1', {
+      excludeUserIds: ['user-1'],
+      includeRoles: undefined,
+    });
     expect(prisma.notification.createMany).toHaveBeenCalledWith({
       data: [
-        expect.objectContaining({
-          userId: 'user-2',
-          workspaceId: 'ws-1',
-          taskId: 'task-1',
-        }),
-        expect.objectContaining({ userId: 'user-3' }),
+        expect.objectContaining({ userId: 'user-1', workspaceId: 'ws-1', taskId: 'task-1' }),
+        expect.objectContaining({ userId: 'user-2' }),
       ],
     });
   });
 
   it('skips member notifications when no recipients', async () => {
-    mockedListProjectMemberUserIds.mockResolvedValue([]);
+    mockedListWorkspaceMemberUserIds.mockResolvedValue([]);
 
-    await service.notifyProjectMembers(prisma as unknown as PrismaService, {
+    await service.notifyWorkspaceMembers(prisma as unknown as PrismaService, {
       workspaceId: 'ws-1',
       projectId: 'proj-1',
       taskId: 'task-1',
-      actorUserId: 'user-1',
       title: 'Updated',
       body: 'Task changed',
     });

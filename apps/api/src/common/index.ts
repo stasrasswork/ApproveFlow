@@ -12,6 +12,7 @@ export {
   listClientsOutsideProject,
   listProjectClientUserIds,
   listProjectMemberUserIds,
+  listWorkspaceMemberUserIds,
   type ClientOutsideProject,
 } from './client-project-access.js';
 export { normalizeEmail } from './normalize-email.js';

@@ -4,6 +4,7 @@ import type { TaskStatus as SharedTaskStatus } from '@approveflow/shared';
 import {
   NotificationType,
   TaskStatus,
+  WorkspaceRole,
 } from '../generated/prisma/client.js';
 import { userBriefSelect, type UserBrief } from '../common/index.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
@@ -11,7 +12,7 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 
 type NotifyDb = Pick<
   PrismaService,
-  'notification' | 'user' | 'projectMember'
+  'notification' | 'user' | 'workspaceMember'
 >;
 
 export type TaskNotificationContext = {
@@ -32,11 +33,11 @@ export class TaskNotificationsService {
     actor: UserBrief | null,
     task: TaskNotificationContext,
   ): Promise<void> {
-    await this.notifications.notifyProjectMembers(db, {
+    await this.notifications.notifyWorkspaceMembers(db, {
       workspaceId: task.workspaceId,
       projectId: task.projectId,
       taskId: task.taskId,
-      actorUserId,
+      excludeUserId: actorUserId,
       type: NotificationType.TASK_UPDATE,
       title: 'New task created',
       body: `${this.displayUserName(actor)} created "${task.taskTitle}" in ${task.projectName}.`,
@@ -49,11 +50,11 @@ export class TaskNotificationsService {
     actor: UserBrief | null,
     task: TaskNotificationContext,
   ): Promise<void> {
-    await this.notifications.notifyProjectMembers(db, {
+    await this.notifications.notifyWorkspaceMembers(db, {
       workspaceId: task.workspaceId,
       projectId: task.projectId,
       taskId: task.taskId,
-      actorUserId,
+      excludeUserId: actorUserId,
       type: NotificationType.TASK_UPDATE,
       title: 'Task updated',
       body: `${this.displayUserName(actor)} updated "${task.taskTitle}" in ${task.projectName}.`,
@@ -78,11 +79,15 @@ export class TaskNotificationsService {
         ? 'Task sent for client review'
         : 'Task status updated';
 
-    await this.notifications.notifyProjectMembers(db, {
+    await this.notifications.notifyWorkspaceMembers(db, {
       workspaceId: task.workspaceId,
       projectId: task.projectId,
       taskId: task.taskId,
-      actorUserId,
+      excludeUserId: actorUserId,
+      recipientRoles:
+        toStatus === TaskStatus.CLIENT_HANDOFF
+          ? [WorkspaceRole.CLIENT_VIEW]
+          : undefined,
       type,
       title,
       body: `${this.displayUserName(actor)} moved "${task.taskTitle}" in ${task.projectName} from ${this.formatStatus(fromStatus)} to ${this.formatStatus(toStatus)}.`,
@@ -100,11 +105,11 @@ export class TaskNotificationsService {
       ? newDueAt.toISOString().slice(0, 10)
       : 'no due date';
 
-    await this.notifications.notifyProjectMembers(db, {
+    await this.notifications.notifyWorkspaceMembers(db, {
       workspaceId: task.workspaceId,
       projectId: task.projectId,
       taskId: task.taskId,
-      actorUserId,
+      excludeUserId: actorUserId,
       type: NotificationType.TASK_UPDATE,
       title: 'Due date changed',
       body: `${this.displayUserName(actor)} set the due date for "${task.taskTitle}" in ${task.projectName} to ${dueLabel}.`,
@@ -118,11 +123,11 @@ export class TaskNotificationsService {
     task: TaskNotificationContext,
     commentPreview: string,
   ): Promise<void> {
-    await this.notifications.notifyProjectMembers(db, {
+    await this.notifications.notifyWorkspaceMembers(db, {
       workspaceId: task.workspaceId,
       projectId: task.projectId,
       taskId: task.taskId,
-      actorUserId,
+      excludeUserId: actorUserId,
       type: NotificationType.TASK_UPDATE,
       title: 'New comment',
       body: `${this.displayUserName(actor)} commented on "${task.taskTitle}" in ${task.projectName}: ${commentPreview}`,

@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { MailService } from '../../../src/mail/mail.service.js';
-import { TaskStatus } from '../../../src/generated/prisma/client.js';
+import { ClientApprovalType, TaskStatus, TaskEventType } from '../../../src/generated/prisma/client.js';
 import { authHeader, loginAs } from '../../helpers/auth.js';
 import { describeWithSeededApp } from '../../helpers/seeded-app.js';
 import { SEED_IDS, SEED_PASSWORD } from '../../helpers/seed-e2e.js';
@@ -174,6 +174,51 @@ describeWithSeededApp('Task transitions (e2e)', (getContext) => {
 
       expect(response.body.status).toBe(to);
     }
+  });
+
+  it('creates dedicated handoff and client approval records', async () => {
+    const { app, prisma } = getContext();
+    const clientToken = await loginAs(app, 'client@test.local', SEED_PASSWORD);
+
+    await request(app.getHttpServer())
+      .patch(`/tasks/${SEED_IDS.taskClientHandoff}/status`)
+      .set(authHeader(clientToken))
+      .send({ to: TaskStatus.CLIENT_APPROVAL })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/tasks/${SEED_IDS.taskClientApproval}/status`)
+      .set(authHeader(clientToken))
+      .send({ to: TaskStatus.PENDING_CLOSURE })
+      .expect(200);
+
+    const handoffEvent = await prisma.taskEvent.findFirst({
+      where: { taskId: SEED_IDS.taskClientHandoff, type: TaskEventType.HANDOFF_ACK },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(handoffEvent).toBeTruthy();
+
+    const handoffAck = await prisma.clientHandoffAck.findFirst({
+      where: { taskEventId: handoffEvent!.id },
+    });
+    expect(handoffAck).toBeTruthy();
+    expect(handoffAck?.taskId).toBe(SEED_IDS.taskClientHandoff);
+
+    const approvalEvent = await prisma.taskEvent.findFirst({
+      where: {
+        taskId: SEED_IDS.taskClientApproval,
+        type: TaskEventType.CLIENT_APPROVAL,
+        approvalType: ClientApprovalType.APPROVED,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(approvalEvent).toBeTruthy();
+
+    const approvalAction = await prisma.clientApprovalAction.findFirst({
+      where: { taskEventId: approvalEvent!.id },
+    });
+    expect(approvalAction).toBeTruthy();
+    expect(approvalAction?.action).toBe(ClientApprovalType.APPROVED);
   });
 
   it('keeps status transition committed when SMTP send fails', async () => {

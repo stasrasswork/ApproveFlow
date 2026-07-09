@@ -2,7 +2,7 @@
 
 NestJS backend for ApproveFlow: auth, workspaces, projects, tasks, comments, and the task approval workflow.
 
-Product rules and status transitions: [`../../approveflow-spec.md`](../../approveflow-spec.md).
+Product rules and status transitions: [`../../docs/product/approveflow-spec.md`](../../docs/product/approveflow-spec.md).
 
 ## Prerequisites
 

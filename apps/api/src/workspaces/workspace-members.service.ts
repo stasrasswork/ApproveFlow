@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  NotificationType,
   WorkspaceMember,
   WorkspaceRole,
 } from '../generated/prisma/client.js';
@@ -122,6 +123,23 @@ export class WorkspaceMembersService {
         workspaceId,
         workspaceName: workspace.name,
       });
+      const [actor, addedUser] = await Promise.all([
+        this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true, name: true },
+        }),
+        this.prisma.user.findUnique({
+          where: { id: targetUser.id },
+          select: { email: true, name: true },
+        }),
+      ]);
+      await this.notifications.notifyWorkspaceMembers(this.prisma, {
+        workspaceId,
+        excludeUserId: userId,
+        type: NotificationType.TASK_UPDATE,
+        title: 'Workspace member added',
+        body: `${this.actorName(actor)} added ${this.actorName(addedUser)} to the workspace as ${dto.role.toLowerCase()}.`,
+      });
       return { status: 'added', member };
     } catch (error) {
       rethrowUniqueAsConflict(
@@ -154,13 +172,25 @@ export class WorkspaceMembersService {
       await this.assertNotLastAdmin(workspaceId);
     }
 
-    return this.prisma.workspaceMember.update({
+    const updated = await this.prisma.workspaceMember.update({
       where: { id: membership.id },
       data: { role: dto.role },
       include: {
         user: { select: userBriefSelect },
       },
     });
+    const actor = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    });
+    await this.notifications.notifyWorkspaceMembers(this.prisma, {
+      workspaceId,
+      excludeUserId: userId,
+      type: NotificationType.TASK_UPDATE,
+      title: 'Workspace role updated',
+      body: `${this.actorName(actor)} changed ${this.actorName(updated.user)} role to ${dto.role.toLowerCase()}.`,
+    });
+    return updated;
   }
 
   async remove(
@@ -184,6 +214,23 @@ export class WorkspaceMembersService {
 
     await this.prisma.workspaceMember.delete({
       where: { id: membership.id },
+    });
+    const [actor, removedUser] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, name: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: memberUserId },
+        select: { email: true, name: true },
+      }),
+    ]);
+    await this.notifications.notifyWorkspaceMembers(this.prisma, {
+      workspaceId,
+      excludeUserId: userId,
+      type: NotificationType.TASK_UPDATE,
+      title: 'Workspace member removed',
+      body: `${this.actorName(actor)} removed ${this.actorName(removedUser)} from the workspace.`,
     });
   }
 
@@ -215,5 +262,14 @@ export class WorkspaceMembersService {
     if (adminCount <= 1) {
       throw new BadRequestException('Workspace must have at least one admin');
     }
+  }
+
+  private actorName(
+    actor: Pick<UserBrief, 'email' | 'name'> | null | undefined,
+  ): string {
+    if (!actor) {
+      return 'Someone';
+    }
+    return actor.name?.trim() || actor.email;
   }
 }

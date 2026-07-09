@@ -2,12 +2,13 @@ import { Injectable } from '@nestjs/common';
 import {
   Notification,
   NotificationType,
+  WorkspaceRole,
 } from '../generated/prisma/client.js';
 import { EmailOutboxService } from '../mail/email-outbox.service.js';
-import { listProjectMemberUserIds } from '../common/index.js';
+import { listWorkspaceMemberUserIds } from '../common/index.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
-type NotifyDb = Pick<PrismaService, 'notification' | 'user' | 'projectMember'>;
+type NotifyDb = Pick<PrismaService, 'notification' | 'workspaceMember'>;
 
 export type NotificationView = Notification;
 
@@ -53,37 +54,38 @@ export class NotificationsService {
     });
   }
 
-  async notifyProjectMembers(
+  async notifyWorkspaceMembers(
     db: NotifyDb,
     params: {
       workspaceId: string;
-      projectId: string;
-      taskId: string;
-      actorUserId: string;
+      projectId?: string;
+      taskId?: string;
+      excludeUserId?: string;
+      recipientRoles?: WorkspaceRole[];
       title: string;
       body: string;
       type?: NotificationType;
     },
   ): Promise<void> {
-    const recipientIds = await listProjectMemberUserIds(
-      db,
-      params.projectId,
-      params.actorUserId,
-    );
+    const recipientIds = await listWorkspaceMemberUserIds(db, params.workspaceId, {
+      excludeUserIds: params.excludeUserId ? [params.excludeUserId] : [],
+      includeRoles: params.recipientRoles,
+    });
 
     if (recipientIds.length === 0) {
       return;
     }
 
+    const uniqueRecipientIds = [...new Set(recipientIds)];
     await db.notification.createMany({
-      data: recipientIds.map((userId) => ({
+      data: uniqueRecipientIds.map((userId) => ({
         userId,
         workspaceId: params.workspaceId,
         type: params.type ?? NotificationType.TASK_UPDATE,
         title: params.title,
         body: params.body,
-        taskId: params.taskId,
-        projectId: params.projectId,
+        taskId: params.taskId ?? null,
+        projectId: params.projectId ?? null,
       })),
     });
   }

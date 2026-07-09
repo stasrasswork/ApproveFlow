@@ -4,6 +4,8 @@ export async function resetDb(prisma: PrismaService): Promise<void> {
   await prisma.$transaction([
     prisma.notification.deleteMany(),
     prisma.workspaceInvite.deleteMany(),
+    prisma.clientApprovalAction.deleteMany(),
+    prisma.clientHandoffAck.deleteMany(),
     prisma.taskEvent.deleteMany(),
     prisma.taskDueChange.deleteMany(),
     prisma.comment.deleteMany(),

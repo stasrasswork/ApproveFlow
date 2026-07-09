@@ -1,4 +1,4 @@
-// ApproveFlow — approveflow-spec.md
+// ApproveFlow — docs/product/approveflow-spec.md
 
 generator client {
   provider     = "prisma-client"
@@ -89,6 +89,8 @@ model User {
   comments             Comment[]
   taskEvents           TaskEvent[]
   taskDueChanges       TaskDueChange[]
+  handoffAcks          ClientHandoffAck[]
+  clientApprovalActions ClientApprovalAction[]
   passwordResetTokens  PasswordResetToken[]
   notifications        Notification[]
   workspaceInvitesSent WorkspaceInvite[]    @relation("InvitedBy")
@@ -175,6 +177,8 @@ model Task {
   comments   Comment[]
   events     TaskEvent[]
   dueChanges TaskDueChange[]
+  handoffAcks ClientHandoffAck[]
+  clientApprovalActions ClientApprovalAction[]
 
   @@index([projectId])
   @@index([assigneeId])
@@ -210,9 +214,43 @@ model TaskEvent {
 
   task  Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   actor User @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  handoffAck ClientHandoffAck?
+  clientApprovalAction ClientApprovalAction?
 
   @@index([taskId, createdAt])
   @@map("task_events")
+}
+
+model ClientHandoffAck {
+  id          String   @id @default(cuid())
+  taskId      String   @map("task_id")
+  taskEventId String   @unique @map("task_event_id")
+  actorId     String   @map("actor_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskEvent TaskEvent @relation(fields: [taskEventId], references: [id], onDelete: Cascade)
+  actor     User      @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("client_handoff_acks")
+}
+
+model ClientApprovalAction {
+  id          String             @id @default(cuid())
+  taskId      String             @map("task_id")
+  taskEventId String             @unique @map("task_event_id")
+  actorId     String             @map("actor_id")
+  action      ClientApprovalType
+  comment     String?
+  createdAt   DateTime           @default(now()) @map("created_at")
+
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskEvent TaskEvent @relation(fields: [taskEventId], references: [id], onDelete: Cascade)
+  actor     User      @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("client_approval_actions")
 }
 
 model TaskDueChange {

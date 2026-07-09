@@ -6,7 +6,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  ClientApprovalType,
   Task,
   TaskDueChange,
   TaskEvent,
@@ -19,8 +18,6 @@ import {
   assertProjectAccess,
   assertProjectAllowsTaskChanges,
   buildTaskListWhere,
-  ensureProjectClients,
-  listProjectClientUserIds,
   loadProjectAndAssertAccess,
   userBriefSelect,
   type UserBrief,
@@ -34,16 +31,14 @@ import {
   UpdateTaskDueDto,
 } from './dto/index.js';
 import {
-  assertTransitionWithPayload,
   buildAllowedTransitionTargets,
-  TransitionNotAllowedError,
-  TransitionValidationError,
   type AllowedTransitionTarget,
 } from './domain/task-transition.js';
 import {
   TaskNotificationsService,
   type TaskNotificationContext,
 } from './task-notifications.service.js';
+import { TasksTransitionService } from './tasks-transition.service.js';
 
 type TaskWithProject = Task & {
   project: { id: string; workspaceId: string };
@@ -77,6 +72,7 @@ export class TasksService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly taskNotifications: TaskNotificationsService,
+    private readonly transitionService: TasksTransitionService,
   ) {}
 
   async getEvents(taskId: string, userId: string): Promise<TaskEventView[]> {
@@ -198,119 +194,7 @@ export class TasksService {
 
     await assertProjectAllowsTaskChanges(this.prisma, task.project.id);
 
-    let resolved;
-    try {
-      resolved = assertTransitionWithPayload(
-        role,
-        task.status,
-        dto.to,
-        { comment: dto.comment },
-      );
-    } catch (error) {
-      if (error instanceof TransitionNotAllowedError) {
-        throw new ForbiddenException(error.message);
-      }
-      if (error instanceof TransitionValidationError) {
-        throw new BadRequestException(error.message);
-      }
-      throw error;
-    }
-
-    const commentText = dto.comment?.trim();
-    const fromStatus = task.status;
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      if (
-        resolved.approvalType === ClientApprovalType.CHANGES_REQUESTED &&
-        commentText
-      ) {
-        await tx.comment.create({
-          data: {
-            taskId,
-            authorId: userId,
-            body: commentText,
-          },
-        });
-      }
-
-      let clientUserIds: string[] = [];
-      if (dto.to === TaskStatus.CLIENT_HANDOFF) {
-        if ((dto.clientUserIds?.length ?? 0) > 0) {
-          await ensureProjectClients(
-            tx,
-            task.project.id,
-            task.project.workspaceId,
-            dto.clientUserIds!,
-          );
-          clientUserIds = [...new Set(dto.clientUserIds!)];
-        } else {
-          clientUserIds = await listProjectClientUserIds(
-            tx,
-            task.project.id,
-            task.project.workspaceId,
-          );
-        }
-      }
-
-      await tx.taskEvent.create({
-        data: {
-          taskId,
-          actorId: userId,
-          type: resolved.eventType,
-          fromStatus,
-          toStatus: dto.to,
-          approvalType: resolved.approvalType,
-          comment: commentText ?? null,
-        },
-      });
-
-      await tx.task.update({
-        where: { id: taskId },
-        data: { status: dto.to },
-      });
-
-      const project = await tx.project.findUniqueOrThrow({
-        where: { id: task.project.id },
-        select: { name: true, workspaceId: true },
-      });
-      const actor = await this.taskNotifications.loadActor(tx, userId);
-      const notifyContext = this.buildNotifyContext(
-        taskId,
-        task.project.id,
-        project.workspaceId,
-        task.title,
-        project.name,
-      );
-
-      await this.taskNotifications.notifyStatusChanged(
-        tx,
-        userId,
-        actor,
-        notifyContext,
-        fromStatus,
-        dto.to,
-      );
-
-      const taskView = await tx.task.findUniqueOrThrow({
-        where: { id: taskId },
-        include: taskViewInclude,
-      });
-
-      return {
-        taskView,
-        mailContext:
-          dto.to === TaskStatus.CLIENT_HANDOFF && clientUserIds.length > 0
-            ? {
-                clientUserIds,
-                workspaceId: project.workspaceId,
-                taskId,
-                projectId: task.project.id,
-                taskTitle: task.title,
-                projectName: project.name,
-              }
-            : null,
-      };
-    });
+    const result = await this.transitionService.transition(task, userId, role, dto);
 
     if (result.mailContext) {
       try {

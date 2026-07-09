@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import {
   ClientApprovalType,
+  NotificationType,
   Project,
+  ProjectStatus,
   TaskEventType,
   TaskStatus,
   WorkspaceRole,
@@ -10,24 +12,18 @@ import {
   assertAgencyProjectAccess,
   assertAgencyRole,
   assertWorkspaceExists,
-  buildTaskListWhere,
   getWorkspaceRole,
   isAgencyRole,
   listClientsOutsideProject,
   loadProjectAndAssertAccess,
-  loadWorkspaceRoleMap,
-  userBriefSelect,
   type ClientOutsideProject,
   type UserBrief,
 } from '../common/index.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { CreateProjectDto, UpdateProjectDto } from './dto/index.js';
-import {
-  buildActivityCursorWhere,
-  compareActivityItems,
-  decodeActivityCursor,
-  encodeActivityCursor,
-} from './activity-cursor.js';
+import { ProjectActivityService } from './project-activity.service.js';
+import { ProjectStatsService } from './project-stats.service.js';
 
 export type ProjectStats = {
   clientHandoff: number;
@@ -76,7 +72,12 @@ export type ProjectActivityItem =
 
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+    private readonly projectStats: ProjectStatsService,
+    private readonly projectActivity: ProjectActivityService,
+  ) {}
 
   async create(
     workspaceId: string,
@@ -91,13 +92,28 @@ export class ProjectsService {
       'Only admin or manager can manage projects',
     );
 
-    return this.prisma.project.create({
+    const created = await this.prisma.project.create({
       data: {
         workspaceId,
         name: dto.name,
         description: dto.description,
       },
     });
+
+    const actor = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    });
+    await this.notifications.notifyWorkspaceMembers(this.prisma, {
+      workspaceId,
+      projectId: created.id,
+      excludeUserId: userId,
+      type: NotificationType.TASK_UPDATE,
+      title: 'Project created',
+      body: `${this.actorName(actor)} created project "${created.name}".`,
+    });
+
+    return created;
   }
 
   async findByWorkspace(
@@ -131,35 +147,8 @@ export class ProjectsService {
   }
 
   async getStats(projectId: string, userId: string): Promise<ProjectStats> {
-    const { role } = await loadProjectAndAssertAccess(
-      this.prisma,
-      projectId,
-      userId,
-    );
-    const taskWhere = buildTaskListWhere(projectId, role, userId);
-    const now = new Date();
-
-    const [clientHandoff, clientApproval, notDone, overdueDue] =
-      await Promise.all([
-        this.prisma.task.count({
-          where: { ...taskWhere, status: TaskStatus.CLIENT_HANDOFF },
-        }),
-        this.prisma.task.count({
-          where: { ...taskWhere, status: TaskStatus.CLIENT_APPROVAL },
-        }),
-        this.prisma.task.count({
-          where: { ...taskWhere, status: { not: TaskStatus.DONE } },
-        }),
-        this.prisma.task.count({
-          where: {
-            ...taskWhere,
-            status: { not: TaskStatus.DONE },
-            dueAt: { lt: now },
-          },
-        }),
-      ]);
-
-    return { clientHandoff, clientApproval, notDone, overdueDue };
+    const { role } = await loadProjectAndAssertAccess(this.prisma, projectId, userId);
+    return this.projectStats.getStats(projectId, role, userId);
   }
 
   async getActivity(
@@ -173,96 +162,14 @@ export class ProjectsService {
       projectId,
       userId,
     );
-    const taskWhere = buildTaskListWhere(projectId, role, userId);
-    const roleByUserId = await loadWorkspaceRoleMap(this.prisma, workspaceId);
-
-    const parsedCursor = cursor ? decodeActivityCursor(cursor) : null;
-    const cursorWhere = buildActivityCursorWhere(parsedCursor);
-    const fetchLimit = limit + 1;
-
-    const [events, comments, dueChanges] = await Promise.all([
-      this.prisma.taskEvent.findMany({
-        where: { task: taskWhere, ...cursorWhere },
-        include: {
-          task: { select: { id: true, title: true } },
-          actor: { select: userBriefSelect },
-        },
-        take: fetchLimit,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      }),
-      this.prisma.comment.findMany({
-        where: { task: taskWhere, ...cursorWhere },
-        include: {
-          task: { select: { id: true, title: true } },
-          author: { select: userBriefSelect },
-        },
-        take: fetchLimit,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      }),
-      this.prisma.taskDueChange.findMany({
-        where: { task: taskWhere, ...cursorWhere },
-        include: {
-          task: { select: { id: true, title: true } },
-          changedBy: { select: userBriefSelect },
-        },
-        take: fetchLimit,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      }),
-    ]);
-
-    const items: ProjectActivityItem[] = [
-      ...events.map((event) => ({
-        type: 'status_changed' as const,
-        id: event.id,
-        occurredAt: event.createdAt,
-        taskId: event.task.id,
-        taskTitle: event.task.title,
-        actor: event.actor,
-        actorRole: roleByUserId.get(event.actorId) ?? null,
-        eventType: event.type,
-        fromStatus: event.fromStatus,
-        toStatus: event.toStatus,
-        approvalType: event.approvalType,
-        comment: event.comment,
-      })),
-      ...comments.map((comment) => ({
-        type: 'comment' as const,
-        id: comment.id,
-        occurredAt: comment.createdAt,
-        taskId: comment.task.id,
-        taskTitle: comment.task.title,
-        author: comment.author,
-        authorRole: roleByUserId.get(comment.authorId) ?? null,
-        body: comment.body,
-      })),
-      ...dueChanges.map((change) => ({
-        type: 'due_changed' as const,
-        id: change.id,
-        occurredAt: change.createdAt,
-        taskId: change.task.id,
-        taskTitle: change.task.title,
-        changedBy: change.changedBy,
-        changedByRole: roleByUserId.get(change.changedById) ?? null,
-        oldDueAt: change.oldDueAt,
-        newDueAt: change.newDueAt,
-        reason: change.reason,
-      })),
-    ];
-
-    items.sort(compareActivityItems);
-    const page = items.slice(0, limit);
-    const hasMore = items.length > limit;
-    const lastItem = page.length > 0 ? page[page.length - 1] : undefined;
-    const nextCursor =
-      hasMore && lastItem
-        ? encodeActivityCursor({
-            occurredAt: lastItem.occurredAt.toISOString(),
-            id: lastItem.id,
-            type: lastItem.type,
-          })
-        : null;
-
-    return { items: page, nextCursor };
+    return this.projectActivity.getActivity(
+      projectId,
+      workspaceId,
+      role,
+      userId,
+      limit,
+      cursor,
+    );
   }
 
   async getClientsOutside(
@@ -283,19 +190,70 @@ export class ProjectsService {
     userId: string,
     dto: UpdateProjectDto,
   ): Promise<Project> {
-    await assertAgencyProjectAccess(this.prisma, projectId, userId);
-
-    return this.prisma.project.update({
+    const project = await assertAgencyProjectAccess(this.prisma, projectId, userId);
+    const existing = await this.prisma.project.findUniqueOrThrow({
+      where: { id: projectId },
+    });
+    const updated = await this.prisma.project.update({
       where: { id: projectId },
       data: dto,
     });
+    const actor = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    });
+
+    await this.notifications.notifyWorkspaceMembers(this.prisma, {
+      workspaceId: project.workspaceId,
+      projectId: updated.id,
+      excludeUserId: userId,
+      type: NotificationType.TASK_UPDATE,
+      title:
+        dto.status !== undefined && dto.status !== existing.status
+          ? 'Project status updated'
+          : 'Project updated',
+      body:
+        dto.status !== undefined && dto.status !== existing.status
+          ? `${this.actorName(actor)} changed project "${updated.name}" status from ${this.formatProjectStatus(existing.status)} to ${this.formatProjectStatus(updated.status)}.`
+          : `${this.actorName(actor)} updated project "${updated.name}".`,
+    });
+
+    return updated;
   }
 
   async delete(projectId: string, userId: string): Promise<void> {
-    await assertAgencyProjectAccess(this.prisma, projectId, userId);
+    const project = await assertAgencyProjectAccess(this.prisma, projectId, userId);
+    const existing = await this.prisma.project.findUniqueOrThrow({
+      where: { id: projectId },
+      select: { id: true, name: true },
+    });
 
     await this.prisma.project.delete({
       where: { id: projectId },
     });
+
+    const actor = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    });
+    await this.notifications.notifyWorkspaceMembers(this.prisma, {
+      workspaceId: project.workspaceId,
+      projectId: existing.id,
+      excludeUserId: userId,
+      type: NotificationType.TASK_UPDATE,
+      title: 'Project deleted',
+      body: `${this.actorName(actor)} deleted project "${existing.name}".`,
+    });
+  }
+
+  private actorName(actor: { email: string; name: string | null } | null): string {
+    if (!actor) {
+      return 'Someone';
+    }
+    return actor.name?.trim() || actor.email;
+  }
+
+  private formatProjectStatus(status: ProjectStatus): string {
+    return status.toLowerCase();
   }
 }

@@ -1,6 +1,6 @@
 /**
  * Task status transition rules (state machine).
- * Source of truth: approveflow-spec.md → «Матрица переходов».
+ * Source of truth: docs/product/approveflow-spec.md → «Матрица переходов».
  */
 
 import { TASK_STATUS_LABELS } from '@approveflow/shared';

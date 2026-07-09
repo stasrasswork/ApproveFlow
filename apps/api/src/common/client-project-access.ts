@@ -109,3 +109,27 @@ export async function listProjectMemberUserIds(
     .map((member) => member.userId)
     .filter((userId) => userId !== excludeUserId);
 }
+
+export async function listWorkspaceMemberUserIds(
+  prisma: Pick<PrismaService, 'workspaceMember'>,
+  workspaceId: string,
+  options?: {
+    excludeUserIds?: string[];
+    includeRoles?: WorkspaceRole[];
+  },
+): Promise<string[]> {
+  const excluded = new Set(options?.excludeUserIds ?? []);
+  const members = await prisma.workspaceMember.findMany({
+    where: {
+      workspaceId,
+      ...(options?.includeRoles && options.includeRoles.length > 0
+        ? { role: { in: options.includeRoles } }
+        : {}),
+    },
+    select: { userId: true },
+  });
+
+  return [...new Set(members.map((member) => member.userId))].filter(
+    (userId) => !excluded.has(userId),
+  );
+}

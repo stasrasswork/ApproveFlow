@@ -1,16 +1,16 @@
-import { TaskStatus } from '../generated/prisma/client.js';
+import { TaskStatus, WorkspaceRole } from '../generated/prisma/client.js';
 import type { NotificationsService } from '../notifications/notifications.service.js';
 import { TaskNotificationsService } from './task-notifications.service.js';
 
 describe('TaskNotificationsService', () => {
   let service: TaskNotificationsService;
   let notifications: {
-    notifyProjectMembers: jest.Mock;
+    notifyWorkspaceMembers: jest.Mock;
   };
   let db: {
     notification: { createMany: jest.Mock };
     user: { findUnique: jest.Mock };
-    projectMember: { findMany: jest.Mock };
+    workspaceMember: { findMany: jest.Mock };
   };
 
   const taskContext = {
@@ -29,12 +29,12 @@ describe('TaskNotificationsService', () => {
 
   beforeEach(() => {
     notifications = {
-      notifyProjectMembers: jest.fn().mockResolvedValue(undefined),
+      notifyWorkspaceMembers: jest.fn().mockResolvedValue(undefined),
     };
     db = {
       notification: { createMany: jest.fn() },
       user: { findUnique: jest.fn().mockResolvedValue(actor) },
-      projectMember: { findMany: jest.fn() },
+      workspaceMember: { findMany: jest.fn() },
     };
     service = new TaskNotificationsService(
       notifications as unknown as NotificationsService,
@@ -47,9 +47,10 @@ describe('TaskNotificationsService', () => {
   it('notifies on task creation', async () => {
     await service.notifyCreated(notifyDb(), 'user-1', actor, taskContext);
 
-    expect(notifications.notifyProjectMembers).toHaveBeenCalledWith(
+    expect(notifications.notifyWorkspaceMembers).toHaveBeenCalledWith(
       db,
       expect.objectContaining({
+        excludeUserId: 'user-1',
         title: 'New task created',
         body: expect.stringContaining('Banner'),
       }),
@@ -66,9 +67,11 @@ describe('TaskNotificationsService', () => {
       TaskStatus.CLIENT_HANDOFF,
     );
 
-    expect(notifications.notifyProjectMembers).toHaveBeenCalledWith(
+    expect(notifications.notifyWorkspaceMembers).toHaveBeenCalledWith(
       db,
       expect.objectContaining({
+        excludeUserId: 'user-1',
+        recipientRoles: [WorkspaceRole.CLIENT_VIEW],
         title: 'Task sent for client review',
         type: 'TASK_CLIENT_HANDOFF',
       }),
@@ -84,9 +87,10 @@ describe('TaskNotificationsService', () => {
       new Date('2030-06-01T12:00:00.000Z'),
     );
 
-    expect(notifications.notifyProjectMembers).toHaveBeenCalledWith(
+    expect(notifications.notifyWorkspaceMembers).toHaveBeenCalledWith(
       db,
       expect.objectContaining({
+        excludeUserId: 'user-1',
         title: 'Due date changed',
         body: expect.stringContaining('2030-06-01'),
       }),

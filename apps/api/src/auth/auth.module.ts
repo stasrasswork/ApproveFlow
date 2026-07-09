@@ -6,8 +6,10 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { JWT_SECRET } from './auth.constants.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
+import { AuthTokenService } from './auth-token.service.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { JwtStrategy } from './jwt.strategy.js';
+import { PasswordResetService } from './password-reset.service.js';
 
 @Module({
   imports: [
@@ -20,7 +22,13 @@ import { JwtStrategy } from './jwt.strategy.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard],
+  providers: [
+    AuthService,
+    AuthTokenService,
+    PasswordResetService,
+    JwtStrategy,
+    JwtAuthGuard,
+  ],
   exports: [AuthService, JwtModule, JwtAuthGuard],
 })
 export class AuthModule {}

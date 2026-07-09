@@ -4,6 +4,7 @@ import {
   listClientsOutsideProject,
   listProjectClientUserIds,
   listProjectMemberUserIds,
+  listWorkspaceMemberUserIds,
 } from '../../src/common/client-project-access.js';
 import { WorkspaceRole } from '../../src/generated/prisma/client.js';
 
@@ -102,5 +103,37 @@ describe('client-project-access', () => {
     const result = await listProjectMemberUserIds(prisma, 'proj-1', 'user-1');
 
     expect(result).toEqual(['user-2']);
+  });
+
+  it('lists all workspace members without duplicates', async () => {
+    const prisma = createMockPrisma();
+    (prisma.workspaceMember.findMany as jest.Mock).mockResolvedValue([
+      { userId: 'user-1' },
+      { userId: 'user-1' },
+      { userId: 'user-2' },
+    ]);
+
+    const result = await listWorkspaceMemberUserIds(prisma, 'ws-1');
+
+    expect(result).toEqual(['user-1', 'user-2']);
+  });
+
+  it('filters workspace members by role and excludes actor', async () => {
+    const prisma = createMockPrisma();
+    (prisma.workspaceMember.findMany as jest.Mock).mockResolvedValue([
+      { userId: 'client-1' },
+      { userId: 'admin-1' },
+    ]);
+
+    const result = await listWorkspaceMemberUserIds(prisma, 'ws-1', {
+      includeRoles: [WorkspaceRole.CLIENT_VIEW],
+      excludeUserIds: ['admin-1'],
+    });
+
+    expect(prisma.workspaceMember.findMany).toHaveBeenCalledWith({
+      where: { workspaceId: 'ws-1', role: { in: [WorkspaceRole.CLIENT_VIEW] } },
+      select: { userId: true },
+    });
+    expect(result).toEqual(['client-1']);
   });
 });
