@@ -50,7 +50,7 @@ export function ClientHandoffPicker({
               <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200/60 bg-white px-3 py-2.5">
                 <input
                   type="checkbox"
-                  className="mt-1"
+                  className="mt-0.5 h-6 w-6 shrink-0 cursor-pointer rounded-md border-slate-400 text-slate-700 accent-slate-700 focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
                   checked={checked}
                   disabled={disabled}
                   onChange={() => toggleClient(client.userId)}

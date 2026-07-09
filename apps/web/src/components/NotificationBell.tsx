@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notificationsApi } from '../api/endpoints';
 import { useAuth } from '../auth/useAuth';
-import { liveQueryOptions } from '../lib/constants';
+import { liveQueryOptions, NOTIFICATIONS_OPEN_REFETCH_MS } from '../lib/constants';
 import { formatDateTime } from '../lib/format';
 import { queryKeys } from '../lib/query-keys';
 import { Button } from './ui/Button';
@@ -70,6 +70,7 @@ export function NotificationBell() {
     queryFn: () => notificationsApi.list(),
     enabled: open,
     ...liveQueryOptions,
+    refetchInterval: open ? NOTIFICATIONS_OPEN_REFETCH_MS : false,
   });
 
   const markReadMutation = useMutation({

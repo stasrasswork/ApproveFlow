@@ -16,13 +16,9 @@ export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
   COMPLETED: 'bg-slate-100 text-slate-600 ring-slate-200',
 };
 
-/** Project status is informational for workflow — tasks are not blocked by PAUSED/COMPLETED. */
-export function isProjectOperational(status: ProjectStatus): boolean {
+
+/** Project status is informational-only in MVP and does not gate UI actions. */
+export function isProjectEditable(status: ProjectStatus): boolean {
   void status;
   return true;
-}
-
-/** Completed projects are read-only in the UI. */
-export function isProjectEditable(status: ProjectStatus): boolean {
-  return status !== 'COMPLETED';
 }
