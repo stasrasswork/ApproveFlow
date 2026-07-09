@@ -5,11 +5,6 @@
     "apps/*",
     "packages/*"
   ],
-  "dependencies": {
-    "@nestjs/platform-express": "11.1.21",
-    "class-transformer": "0.5.1",
-    "class-validator": "0.15.1"
-  },
   "scripts": {
     "dev:api": "npm run start:dev -w api",
     "dev:web": "npm run dev -w web",
@@ -19,14 +14,14 @@
     "build:api": "npm run build -w api",
     "build:web": "npm run build -w web",
     "lint": "npm run lint -w api && npm run lint -w web",
+    "check:migrations": "node scripts/check-migration-names.mjs",
     "test": "npm run test:api && npm run test:web",
     "test:api": "npm run test -w api",
     "test:web": "npm run test -w web",
-    "test:web:e2e": "bash scripts/e2e-web.sh",
+    "test:web:e2e": "bash scripts/e2e/web.sh",
     "codegen:openapi": "npm run build:shared && npm run db:generate -w api && npm run export-openapi -w api && openapi-typescript packages/shared/openapi.json -o packages/shared/src/generated/openapi.ts && npm run build -w @approveflow/shared"
   },
   "devDependencies": {
-    "jsdom": "^29.1.1",
     "openapi-typescript": "^7.13.0"
   }
 }

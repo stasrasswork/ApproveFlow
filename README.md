@@ -2,7 +2,7 @@
 
 B2B SaaS for marketing and creative agencies: structured task approvals, deadlines, and team collaboration in one workspace.
 
-Product rules: [`approveflow-spec.md`](approveflow-spec.md) · Vision: [`approveflow-project-overview.md`](approveflow-project-overview.md)
+Product rules: [`docs/product/approveflow-spec.md`](docs/product/approveflow-spec.md) · Vision: [`docs/product/approveflow-project-overview.md`](docs/product/approveflow-project-overview.md)
 
 ## Monorepo layout
 
@@ -118,9 +118,13 @@ npm run test:web
 
 ## Production deployment
 
-See [`DEPLOY.md`](DEPLOY.md) for Docker Compose, manual deploy, and Render.
+See [`docs/operations/DEPLOY.md`](docs/operations/DEPLOY.md) for Docker Compose, manual deploy, and Render.
 
 ## Documentation
 
 - [`apps/api/README.md`](apps/api/README.md) — API setup, env, database, tests
 - [`apps/web/README.md`](apps/web/README.md) — frontend setup and scripts
+- [`docs/product/approveflow-spec.md`](docs/product/approveflow-spec.md) — workflow rules and transition matrix
+- [`docs/operations/DEPLOY.md`](docs/operations/DEPLOY.md) — production deployment options
+- [`docs/operations/migration-policy.md`](docs/operations/migration-policy.md) — migration naming and CI rules
+- [`docs/adr`](docs/adr) — product and architecture decisions

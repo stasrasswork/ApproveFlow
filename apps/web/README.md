@@ -2,7 +2,7 @@
 
 React frontend for ApproveFlow: auth, projects, tasks, approvals, and team settings.
 
-Product rules: [`../../approveflow-spec.md`](../../approveflow-spec.md)
+Product rules: [`../../docs/product/approveflow-spec.md`](../../docs/product/approveflow-spec.md)
 
 ## Prerequisites
 

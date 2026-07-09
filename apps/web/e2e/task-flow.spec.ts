@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { signIn } from './auth-helpers';
 
 const PASSWORD = 'password123';
 const WORKSPACE_ID = 'ws_demo';
@@ -6,12 +7,7 @@ const PROJECT_ID = 'proj_demo';
 const TASK_TITLE = `E2E task ${Date.now()}`;
 
 test('manager logs in, creates task, and starts work', async ({ page }) => {
-  await page.goto('/login');
-  await page.getByLabel('Email').fill('manager@test.local');
-  await page.getByLabel('Password').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Sign in' }).click();
-
-  await expect(page).toHaveURL(/\/w\//);
+  await signIn(page, 'manager@test.local', PASSWORD);
 
   await page.goto(`/w/${WORKSPACE_ID}/projects/${PROJECT_ID}`);
 
@@ -22,5 +18,5 @@ test('manager logs in, creates task, and starts work', async ({ page }) => {
   await page.getByRole('link', { name: TASK_TITLE }).click();
   await page.getByRole('button', { name: 'Start work' }).click();
 
-  await expect(page.getByText('In progress')).toBeVisible();
+  await expect(page.getByText('In progress', { exact: true })).toBeVisible();
 });
