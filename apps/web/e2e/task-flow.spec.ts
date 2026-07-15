@@ -1,22 +1,20 @@
 import { test, expect } from '@playwright/test';
 import { signIn } from './auth-helpers';
+import { SEED_IDS } from './seed-ids';
 
 const PASSWORD = 'password123';
-const WORKSPACE_ID = 'ws_demo';
-const PROJECT_ID = 'proj_demo';
 const TASK_TITLE = `E2E task ${Date.now()}`;
 
 test('manager logs in, creates task, and starts work', async ({ page }) => {
   await signIn(page, 'manager@test.local', PASSWORD);
 
-  await page.goto(`/w/${WORKSPACE_ID}/projects/${PROJECT_ID}`);
+  await page.goto(`/w/${SEED_IDS.workspace}/projects/${SEED_IDS.project}`);
 
   await page.getByRole('button', { name: '+ New task' }).click();
   await page.getByLabel('Title', { exact: true }).fill(TASK_TITLE);
   await page.getByRole('button', { name: 'Create task' }).click();
 
-  await page.getByRole('link', { name: TASK_TITLE }).click();
+  await expect(page.getByRole('heading', { name: TASK_TITLE })).toBeVisible();
   await page.getByRole('button', { name: 'Start work' }).click();
-
-  await expect(page.getByText('In progress', { exact: true })).toBeVisible();
+  await expect(page.getByText('Production')).toBeVisible();
 });

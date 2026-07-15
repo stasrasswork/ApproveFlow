@@ -103,20 +103,22 @@ export function WorkspaceMembersPage() {
         />
       ) : null}
 
-      <MembersTableCard
-        members={model.members}
-        membersLoading={model.membersLoading}
-        membersError={model.membersError}
-        currentUserId={model.user?.id}
-        canEditRoles={model.canEditRoles}
-        canRemove={model.canRemove}
-        removePending={model.removeMemberMutation.isPending}
-        roleOptions={model.roleOptions}
-        onRoleChange={(userId, newRole) =>
-          model.updateRoleMutation.mutate({ userId, newRole })
-        }
-        onRemoveMember={model.setMemberToRemove}
-      />
+      {model.canViewMembers ? (
+        <MembersTableCard
+          members={model.members}
+          membersLoading={model.membersLoading}
+          membersError={model.membersError}
+          currentUserId={model.user?.id}
+          canEditRoles={model.canEditRoles}
+          canRemove={model.canRemove}
+          removePending={model.removeMemberMutation.isPending}
+          roleOptions={model.roleOptions}
+          onRoleChange={(userId, newRole) =>
+            model.updateRoleMutation.mutate({ userId, newRole })
+          }
+          onRemoveMember={model.setMemberToRemove}
+        />
+      ) : null}
     </div>
   );
 }

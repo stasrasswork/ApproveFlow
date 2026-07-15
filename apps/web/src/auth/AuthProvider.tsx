@@ -8,11 +8,6 @@ import {
 import { authApi } from '../api/endpoints';
 import type { MeResult } from '../api/types';
 import {
-  clearTokens,
-  getAccessToken,
-  setTokens,
-} from '../api/client';
-import {
   AuthContext,
   WORKSPACE_STORAGE_KEY,
   type AuthContextValue,
@@ -30,7 +25,7 @@ function pickActiveWorkspaceId(me: MeResult): string | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthContextValue['user']>(null);
-  const [loading, setLoading] = useState(() => Boolean(getAccessToken()));
+  const [loading, setLoading] = useState(true);
   const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(
     () => localStorage.getItem(WORKSPACE_STORAGE_KEY),
   );
@@ -54,10 +49,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [applyMe]);
 
   useEffect(() => {
-    if (!getAccessToken()) {
-      return;
-    }
-
     let cancelled = false;
 
     authApi
@@ -69,7 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         if (!cancelled) {
-          clearTokens();
           setUser(null);
           setActiveWorkspaceIdState(null);
           localStorage.removeItem(WORKSPACE_STORAGE_KEY);
@@ -90,8 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       setLoading(true);
       try {
-        const tokens = await authApi.login(email, password);
-        setTokens(tokens);
+        await authApi.login(email, password);
         await refreshUser();
       } finally {
         setLoading(false);
@@ -102,13 +91,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      if (getAccessToken()) {
-        await authApi.logout();
-      }
+      await authApi.logout();
     } catch {
       // Local session is cleared even when revocation fails.
     } finally {
-      clearTokens();
       setUser(null);
       setActiveWorkspaceIdState(null);
       localStorage.removeItem(WORKSPACE_STORAGE_KEY);

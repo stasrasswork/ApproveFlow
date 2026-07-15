@@ -25,7 +25,7 @@ export function ForgotPasswordPage() {
     try {
       const result = await authApi.forgotPassword(email);
       setMessage(result.message);
-      if (result.resetToken) {
+      if (result.resetToken && import.meta.env.DEV) {
         setDevToken(result.resetToken);
       }
     } catch (err) {

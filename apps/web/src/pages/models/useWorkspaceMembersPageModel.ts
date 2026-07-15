@@ -5,7 +5,7 @@ import { authApi, workspacesApi } from '../../api/endpoints';
 import type { WorkspaceRole } from '../../api/types';
 import { useAuth } from '../../auth/useAuth';
 import { getApiErrorMessage } from '../../lib/api-error';
-import { liveQueryOptions } from '../../lib/constants';
+import { listLiveQueryOptions } from '../../lib/constants';
 import { roleDropdownOptions } from '../../lib/dropdown-options';
 import { queryKeys } from '../../lib/query-keys';
 import {
@@ -16,7 +16,7 @@ import {
   isAgencyRole,
 } from '../../lib/roles';
 import { roleForWorkspace } from '../../lib/route-workspace-role';
-import { isValidSlug, SLUG_VALIDATION_MESSAGE } from '../../lib/slug';
+import { isValidSlug, SLUG_VALIDATION_MESSAGE } from '@approveflow/shared';
 
 export function useWorkspaceMembersPageModel() {
   const { workspaceId = '' } = useParams();
@@ -58,8 +58,8 @@ export function useWorkspaceMembersPageModel() {
   } = useQuery({
     queryKey: queryKeys.workspaceMembers(workspaceId),
     queryFn: () => workspacesApi.members.list(workspaceId),
-    enabled: Boolean(workspaceId),
-    ...liveQueryOptions,
+    enabled: Boolean(workspaceId) && role !== 'CLIENT_VIEW' && role != null,
+    ...listLiveQueryOptions,
   });
 
   const inviteMutation = useMutation({
@@ -215,6 +215,7 @@ export function useWorkspaceMembersPageModel() {
   }
 
   const canManage = role ? isAgencyRole(role) : false;
+  const canViewMembers = Boolean(role && role !== 'CLIENT_VIEW');
   const canEditRoles = role ? canChangeMemberRoles(role) : false;
   const canRemove = role ? canRemoveMembers(role) : false;
   const canRename = role ? canUpdateWorkspace(role) : false;
@@ -251,6 +252,7 @@ export function useWorkspaceMembersPageModel() {
     confirmDeleteWorkspace,
     deleteWorkspaceMutation,
     canManage,
+    canViewMembers,
     canEditRoles,
     canRemove,
     canRename,

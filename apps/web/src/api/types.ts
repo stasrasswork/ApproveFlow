@@ -17,6 +17,8 @@ export type UserBrief = {
   name: string | null;
 };
 
+export type AuthSessionResult = { ok: true };
+
 export type AuthTokens = {
   access_token: string;
   refresh_token: string;

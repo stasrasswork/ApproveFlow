@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notificationsApi } from '../api/endpoints';
 import { useAuth } from '../auth/useAuth';
-import { liveQueryOptions, NOTIFICATIONS_OPEN_REFETCH_MS } from '../lib/constants';
+import { listLiveQueryOptions, NOTIFICATIONS_OPEN_REFETCH_MS } from '../lib/constants';
 import { formatDateTime } from '../lib/format';
 import { queryKeys } from '../lib/query-keys';
 import { Button } from './ui/Button';
+import { ErrorAlert } from './ui/ErrorAlert';
 
 /** Read notifications older than this are hidden from the dropdown. */
 const READ_NOTIFICATION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -57,37 +58,85 @@ export function NotificationBell() {
   const { activeWorkspace } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const { data: count = 0 } = useQuery({
     queryKey: queryKeys.notificationCount(),
     queryFn: () => notificationsApi.unreadCount(),
-    ...liveQueryOptions,
+    ...listLiveQueryOptions,
   });
 
   const { data: notifications = [] } = useQuery({
     queryKey: queryKeys.notifications(),
     queryFn: () => notificationsApi.list(),
     enabled: open,
-    ...liveQueryOptions,
+    ...listLiveQueryOptions,
     refetchInterval: open ? NOTIFICATIONS_OPEN_REFETCH_MS : false,
   });
 
   const markReadMutation = useMutation({
     mutationFn: (id: string) => notificationsApi.markRead(id),
     onSuccess: () => {
+      setActionError(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
       queryClient.invalidateQueries({ queryKey: queryKeys.notificationCount() });
+    },
+    onError: () => {
+      setActionError('Failed to mark notification as read.');
     },
   });
 
   const markAllMutation = useMutation({
     mutationFn: () => notificationsApi.markAllRead(),
     onSuccess: () => {
+      setActionError(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
       queryClient.invalidateQueries({ queryKey: queryKeys.notificationCount() });
     },
+    onError: () => {
+      setActionError('Failed to mark all notifications as read.');
+    },
   });
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const previousActive = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+
+    function handleTab(event: KeyboardEvent) {
+      if (event.key !== 'Tab' || !dialogRef.current) {
+        return;
+      }
+
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) {
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener('keydown', handleTab);
+    return () => {
+      document.removeEventListener('keydown', handleTab);
+      previousActive?.focus();
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -140,9 +189,11 @@ export function NotificationBell() {
 
       {open ? (
         <div
+          ref={dialogRef}
           className="absolute right-0 z-50 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-4 shadow-lg"
           role="dialog"
           aria-label="Notifications"
+          tabIndex={-1}
         >
           <div className="mb-3 flex items-center justify-between gap-2">
             <p className="text-base font-semibold text-slate-800">Notifications</p>
@@ -169,6 +220,7 @@ export function NotificationBell() {
               </Button>
             </div>
           </div>
+          <ErrorAlert message={actionError} className="mb-3" />
           {visibleNotifications.length === 0 ? (
             <p className="text-sm text-slate-500">No notifications yet.</p>
           ) : (

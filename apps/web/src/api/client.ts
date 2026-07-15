@@ -1,11 +1,10 @@
-import type { AuthTokens } from './types';
-
 const API_URL = import.meta.env.VITE_API_URL || '/api';
+const CSRF_HEADER = 'X-Requested-With';
+const CSRF_VALUE = 'ApproveFlow';
 
-const ACCESS_KEY = 'approveflow_access_token';
-const REFRESH_KEY = 'approveflow_refresh_token';
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-let refreshPromise: Promise<AuthTokens> | null = null;
+let refreshPromise: Promise<void> | null = null;
 
 export class ApiError extends Error {
   status: number;
@@ -19,43 +18,20 @@ export class ApiError extends Error {
   }
 }
 
-export function getAccessToken(): string | null {
-  return localStorage.getItem(ACCESS_KEY);
-}
-
-export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_KEY);
-}
-
-export function setTokens(tokens: AuthTokens): void {
-  localStorage.setItem(ACCESS_KEY, tokens.access_token);
-  localStorage.setItem(REFRESH_KEY, tokens.refresh_token);
-}
-
-export function clearTokens(): void {
-  localStorage.removeItem(ACCESS_KEY);
-  localStorage.removeItem(REFRESH_KEY);
-}
-
-async function refreshTokens(): Promise<AuthTokens> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    throw new ApiError(401, 'No refresh token');
-  }
-
+async function refreshSession(): Promise<void> {
   const response = await fetch(`${API_URL}/auth/refresh`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshToken }),
+    headers: {
+      'Content-Type': 'application/json',
+      [CSRF_HEADER]: CSRF_VALUE,
+    },
+    credentials: 'include',
+    body: JSON.stringify({}),
   });
 
   if (!response.ok) {
     throw new ApiError(response.status, 'Refresh failed');
   }
-
-  const tokens = (await response.json()) as AuthTokens;
-  setTokens(tokens);
-  return tokens;
 }
 
 export async function apiFetch<T>(
@@ -64,24 +40,25 @@ export async function apiFetch<T>(
   retry = true,
 ): Promise<T> {
   const headers = new Headers(options.headers);
+  const method = (options.method ?? 'GET').toUpperCase();
 
   if (options.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 
-  const token = getAccessToken();
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+  if (MUTATING_METHODS.has(method)) {
+    headers.set(CSRF_HEADER, CSRF_VALUE);
   }
 
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers,
+    credentials: 'include',
   });
 
-  if (response.status === 401 && retry && token) {
+  if (response.status === 401 && retry && path !== '/auth/login' && path !== '/auth/refresh') {
     if (!refreshPromise) {
-      refreshPromise = refreshTokens().finally(() => {
+      refreshPromise = refreshSession().finally(() => {
         refreshPromise = null;
       });
     }
@@ -90,7 +67,6 @@ export async function apiFetch<T>(
       await refreshPromise;
       return apiFetch<T>(path, options, false);
     } catch {
-      clearTokens();
       throw new ApiError(401, 'Session expired');
     }
   }

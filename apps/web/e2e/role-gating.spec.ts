@@ -1,10 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { signIn } from './auth-helpers';
+import { SEED_IDS } from './seed-ids';
 
 const PASSWORD = 'password123';
-const WORKSPACE_ID = 'ws_demo';
-const PROJECT_ID = 'proj_demo';
-const TASK_ID = 'task_member_demo';
 
 test('member cannot edit task metadata and sees forbidden response', async ({
   page,
@@ -12,7 +10,7 @@ test('member cannot edit task metadata and sees forbidden response', async ({
   await signIn(page, 'member@test.local', PASSWORD);
 
   await page.goto(
-    `/w/${WORKSPACE_ID}/projects/${PROJECT_ID}/tasks/${TASK_ID}`,
+    `/w/${SEED_IDS.workspace}/projects/${SEED_IDS.project}/tasks/${SEED_IDS.taskMemberDemo}`,
   );
 
   await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0);
@@ -22,6 +20,6 @@ test('member cannot edit task metadata and sees forbidden response', async ({
 test('client cannot access workspace members management', async ({ page }) => {
   await signIn(page, 'client@test.local', PASSWORD);
 
-  await page.goto(`/w/${WORKSPACE_ID}/settings/members`);
+  await page.goto(`/w/${SEED_IDS.workspace}/members`);
   await expect(page.getByRole('heading', { name: 'Members' })).toHaveCount(0);
 });

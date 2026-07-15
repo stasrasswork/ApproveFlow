@@ -30,7 +30,7 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 
-npm run dev -w web &
+npm run dev -w web -- --port 5173 --strictPort &
 WEB_PID=$!
 
 for _ in $(seq 1 30); do

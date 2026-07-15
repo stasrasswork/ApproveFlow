@@ -1,9 +1,9 @@
 import { apiFetch } from '../client';
-import type { AuthTokens, MeResult } from '../types';
+import type { AuthSessionResult, MeResult } from '../types';
 
 export const authApi = {
   login: (email: string, password: string) =>
-    apiFetch<AuthTokens>('/auth/login', {
+    apiFetch<AuthSessionResult>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
