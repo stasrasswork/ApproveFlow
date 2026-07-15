@@ -14,6 +14,7 @@ test('manager logs in, creates task, and starts work', async ({ page }) => {
   await page.getByLabel('Title', { exact: true }).fill(TASK_TITLE);
   await page.getByRole('button', { name: 'Create task' }).click();
 
+  await page.getByRole('link', { name: new RegExp(TASK_TITLE) }).click();
   await expect(page.getByRole('heading', { name: TASK_TITLE })).toBeVisible();
   await page.getByRole('button', { name: 'Start work' }).click();
   await expect(page.getByText('Production')).toBeVisible();
