@@ -6,7 +6,6 @@ import { CsrfGuard } from './auth/csrf.guard.js';
 import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
 import { createThrottlerOptions } from './config/throttler.config.js';
 import { HealthModule } from './health/health.module.js';
-import { InvitesModule } from './invites/invites.module.js';
 import { MailModule } from './mail/mail.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -19,7 +18,6 @@ import { WorkspacesModule } from './workspaces/workspaces.module.js';
     ThrottlerModule.forRoot(createThrottlerOptions()),
     PrismaModule,
     MailModule,
-    InvitesModule,
     NotificationsModule,
     HealthModule,
     AuthModule,

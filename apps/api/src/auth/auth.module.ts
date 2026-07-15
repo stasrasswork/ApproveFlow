@@ -7,7 +7,6 @@ import { JWT_SECRET } from './auth.constants.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { AuthTokenService } from './auth-token.service.js';
-import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { JwtStrategy } from './jwt.strategy.js';
 import { PasswordResetService } from './password-reset.service.js';
 
@@ -27,8 +26,6 @@ import { PasswordResetService } from './password-reset.service.js';
     AuthTokenService,
     PasswordResetService,
     JwtStrategy,
-    JwtAuthGuard,
   ],
-  exports: [AuthService, JwtModule, JwtAuthGuard],
 })
 export class AuthModule {}

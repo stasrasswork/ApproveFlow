@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Comment, WorkspaceRole } from '../../generated/prisma/client.js';
 import {
   assertCanAccessTask,
-  assertProjectAllowsTaskChanges,
+  assertProjectExists,
   loadWorkspaceRoleMap,
   userBriefSelect,
   type UserBrief,
@@ -62,7 +62,7 @@ export class CommentsService {
       },
     });
 
-    await assertProjectAllowsTaskChanges(this.prisma, projectId);
+    await assertProjectExists(this.prisma, projectId);
 
     const comment = await this.prisma.$transaction(async (tx) => {
       const created = await tx.comment.create({

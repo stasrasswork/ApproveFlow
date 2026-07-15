@@ -52,6 +52,7 @@ describe('assertCanAccessTask', () => {
     ).resolves.toEqual({
       workspaceId: 'ws-1',
       projectId: 'proj-1',
+      role: WorkspaceRole.MANAGER,
     });
   });
 
@@ -79,6 +80,7 @@ describe('assertCanAccessTask', () => {
     ).resolves.toEqual({
       workspaceId: 'ws-1',
       projectId: 'proj-1',
+      role: WorkspaceRole.MEMBER,
     });
   });
 });

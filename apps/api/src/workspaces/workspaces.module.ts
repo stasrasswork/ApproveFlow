@@ -11,6 +11,5 @@ import { WorkspacesService } from './workspaces.service.js';
   imports: [PrismaModule, InvitesModule, NotificationsModule],
   controllers: [WorkspacesController, WorkspaceMembersController],
   providers: [WorkspacesService, WorkspaceMembersService],
-  exports: [WorkspacesService, WorkspaceMembersService],
 })
 export class WorkspacesModule {}

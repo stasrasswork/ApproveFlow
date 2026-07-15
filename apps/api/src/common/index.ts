@@ -1,5 +1,5 @@
-export { assertCanAccessTask, type TaskAccessContext } from './task-access.js';
-export { assertProjectAllowsTaskChanges } from './project-status.js';
+export { assertCanAccessTask, assertRoleCanAccessTask, type TaskAccessContext } from './task-access.js';
+export { assertProjectExists, assertProjectAllowsTaskChanges } from './project-status.js';
 export {
   assertAgencyProjectAccess,
   assertAssigneeInProject,

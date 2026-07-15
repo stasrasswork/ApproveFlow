@@ -9,7 +9,24 @@ import { assertProjectAccess } from './project-access.js';
 export type TaskAccessContext = {
   workspaceId: string;
   projectId: string;
+  role: WorkspaceRole;
 };
+
+/** Shared MEMBER/assignee rule for an already-loaded task + project. */
+export async function assertRoleCanAccessTask(
+  prisma: PrismaService,
+  project: { id: string; workspaceId: string },
+  assigneeId: string | null,
+  userId: string,
+): Promise<WorkspaceRole> {
+  const role = await assertProjectAccess(prisma, project, userId);
+
+  if (role === WorkspaceRole.MEMBER && assigneeId !== userId) {
+    throw new ForbiddenException('No access to this task');
+  }
+
+  return role;
+}
 
 export async function assertCanAccessTask(
   prisma: PrismaService,
@@ -28,14 +45,16 @@ export async function assertCanAccessTask(
     throw new NotFoundException(`Task ${taskId} not found`);
   }
 
-  const role = await assertProjectAccess(prisma, task.project, userId);
-
-  if (role === WorkspaceRole.MEMBER && task.assigneeId !== userId) {
-    throw new ForbiddenException('No access to this task');
-  }
+  const role = await assertRoleCanAccessTask(
+    prisma,
+    task.project,
+    task.assigneeId,
+    userId,
+  );
 
   return {
     workspaceId: task.project.workspaceId,
     projectId: task.project.id,
+    role,
   };
 }

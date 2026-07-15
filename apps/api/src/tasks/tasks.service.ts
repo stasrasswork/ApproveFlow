@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -15,14 +14,13 @@ import {
 import {
   assertAssigneeInProject,
   assertAgencyRole,
-  assertProjectAccess,
-  assertProjectAllowsTaskChanges,
+  assertProjectExists,
+  assertRoleCanAccessTask,
   buildTaskListWhere,
   loadProjectAndAssertAccess,
   userBriefSelect,
   type UserBrief,
-} from '../common/index.js';
-import { NotificationsService } from '../notifications/notifications.service.js';
+} from '../common/index.js';import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   CreateTaskDto,
@@ -125,7 +123,7 @@ export class TasksService {
       userId,
     );
 
-    await assertProjectAllowsTaskChanges(this.prisma, projectId);
+    await assertProjectExists(this.prisma, projectId);
 
     await assertAgencyRole(
       this.prisma,
@@ -192,7 +190,7 @@ export class TasksService {
     const task = await this.loadTask(taskId);
     const role = await this.getWorkspaceRoleForTask(task, userId);
 
-    await assertProjectAllowsTaskChanges(this.prisma, task.project.id);
+    await assertProjectExists(this.prisma, task.project.id);
 
     const result = await this.transitionService.transition(task, userId, role, dto);
 
@@ -237,7 +235,7 @@ export class TasksService {
       'Only admin or manager can update tasks',
     );
 
-    await assertProjectAllowsTaskChanges(this.prisma, task.project.id);
+    await assertProjectExists(this.prisma, task.project.id);
 
     if (
       dto.title === undefined &&
@@ -305,7 +303,7 @@ export class TasksService {
       userId,
       'Only admin or manager can change due date',
     );
-    await assertProjectAllowsTaskChanges(this.prisma, task.project.id);
+    await assertProjectExists(this.prisma, task.project.id);
 
     if (dto.dueAt === undefined && dto.reason === undefined) {
       throw new BadRequestException('Provide dueAt and/or reason');
@@ -427,17 +425,12 @@ export class TasksService {
     task: TaskWithProject,
     userId: string,
   ): Promise<WorkspaceRole> {
-    const role = await assertProjectAccess(
+    return assertRoleCanAccessTask(
       this.prisma,
       task.project,
+      task.assigneeId,
       userId,
     );
-
-    if (role === WorkspaceRole.MEMBER && task.assigneeId !== userId) {
-      throw new ForbiddenException('No access to this task');
-    }
-
-    return role;
   }
 
   private getWorkspaceRoleForTask(

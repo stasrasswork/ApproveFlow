@@ -1,48 +1,42 @@
 import { NotFoundException } from '@nestjs/common';
 import { ProjectStatus } from '../generated/prisma/client.js';
-import type { PrismaService } from '../prisma/prisma.service.js';
-import { assertProjectAllowsTaskChanges } from './project-status.js';
+import { assertProjectExists } from './project-status.js';
 
-function createMockPrisma(status: ProjectStatus | null) {
-  return {
+describe('assertProjectExists', () => {
+  const prisma = {
     project: {
-      findUnique: jest.fn().mockResolvedValue(
-        status === null ? null : { status },
-      ),
+      findUnique: jest.fn(),
     },
-  } as unknown as PrismaService;
-}
+  };
 
-describe('assertProjectAllowsTaskChanges', () => {
+  beforeEach(() => {
+    prisma.project.findUnique.mockReset();
+  });
+
   it('throws when project is missing', async () => {
-    const prisma = createMockPrisma(null);
+    prisma.project.findUnique.mockResolvedValue(null);
 
-    await expect(
-      assertProjectAllowsTaskChanges(prisma, 'missing'),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(assertProjectExists(prisma as never, 'missing')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
-  it('allows completed projects (informational status)', async () => {
-    const prisma = createMockPrisma(ProjectStatus.COMPLETED);
+  it('allows ACTIVE projects', async () => {
+    prisma.project.findUnique.mockResolvedValue({ id: 'proj-1' });
 
-    await expect(
-      assertProjectAllowsTaskChanges(prisma, 'proj-1'),
-    ).resolves.toBeUndefined();
+    await expect(assertProjectExists(prisma as never, 'proj-1')).resolves.toBeUndefined();
   });
 
-  it('allows paused projects (informational status)', async () => {
-    const prisma = createMockPrisma(ProjectStatus.PAUSED);
+  it('allows PAUSED projects (status is informational)', async () => {
+    prisma.project.findUnique.mockResolvedValue({ id: 'proj-1' });
 
-    await expect(
-      assertProjectAllowsTaskChanges(prisma, 'proj-1'),
-    ).resolves.toBeUndefined();
+    await expect(assertProjectExists(prisma as never, 'proj-1')).resolves.toBeUndefined();
   });
 
-  it('allows active projects', async () => {
-    const prisma = createMockPrisma(ProjectStatus.ACTIVE);
+  it('allows COMPLETED projects (status is informational)', async () => {
+    prisma.project.findUnique.mockResolvedValue({ id: 'proj-1' });
 
-    await expect(
-      assertProjectAllowsTaskChanges(prisma, 'proj-1'),
-    ).resolves.toBeUndefined();
+    await expect(assertProjectExists(prisma as never, 'proj-1')).resolves.toBeUndefined();
+    expect(ProjectStatus.COMPLETED).toBeDefined();
   });
 });

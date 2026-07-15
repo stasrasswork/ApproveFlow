@@ -22,6 +22,5 @@ import { WorkspaceProjectsController } from './workspace-projects.controller.js'
     ProjectStatsService,
     ProjectActivityService,
   ],
-  exports: [ProjectsService, ProjectMembersService],
 })
 export class ProjectsModule {}
