@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.prod}
       POSTGRES_DB: approveflow
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -14,6 +14,21 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/approveflow?schema=public
+      NODE_ENV: production
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      EXPOSE_DEBUG_TOKENS: ${EXPOSE_DEBUG_TOKENS:-false}
+    entrypoint: ['sh', '-c', 'npx prisma migrate deploy']
+    restart: 'no'
+
   api:
     build:
       context: .
@@ -22,12 +37,23 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/approveflow?schema=public
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/approveflow?schema=public
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.prod}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      APP_URL: ${APP_URL:-http://localhost:8080}
       PORT: 3000
       NODE_ENV: production
+      EXPOSE_DEBUG_TOKENS: ${EXPOSE_DEBUG_TOKENS:-false}
+      REDIS_URL: ${REDIS_URL:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
 
   web:
     build:

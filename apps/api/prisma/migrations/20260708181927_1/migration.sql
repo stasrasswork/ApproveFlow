@@ -1,2 +1,2 @@
--- AlterTable
-ALTER TABLE "email_outbox" ALTER COLUMN "updated_at" DROP DEFAULT;
+-- Legacy no-op: original ALTER ran before email_outbox existed on fresh databases.
+-- See 20260708200000_add_email_outbox for the canonical table definition.

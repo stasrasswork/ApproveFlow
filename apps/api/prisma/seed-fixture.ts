@@ -7,17 +7,18 @@ import {
 
 export const SEED_PASSWORD = 'password123';
 
+/** Stable cuid-shaped ids for deterministic e2e seed data (25 chars). */
 export const SEED_IDS = {
-  admin: 'user_admin',
-  manager: 'user_manager',
-  client: 'user_client',
-  member: 'user_member',
-  workspace: 'ws_demo',
-  project: 'proj_demo',
-  taskMemberDemo: 'task_member_demo',
-  taskClientHandoff: 'task_client_handoff',
-  taskClientApproval: 'task_client_approval',
-  taskPendingClosure: 'task_pending_closure',
+  admin: 'c000000000000000000000001',
+  manager: 'c000000000000000000000002',
+  client: 'c000000000000000000000003',
+  member: 'c000000000000000000000004',
+  workspace: 'c000000000000000000000005',
+  project: 'c000000000000000000000006',
+  taskMemberDemo: 'c000000000000000000000007',
+  taskClientHandoff: 'c000000000000000000000008',
+  taskClientApproval: 'c000000000000000000000009',
+  taskPendingClosure: 'c000000000000000000000010',
 } as const;
 
 export async function seedDatabase(prisma: PrismaClient): Promise<void> {
