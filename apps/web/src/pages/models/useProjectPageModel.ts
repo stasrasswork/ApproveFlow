@@ -11,7 +11,6 @@ import { workspaceMemberDropdownOptions } from '../../lib/dropdown-options';
 import { ensureAssigneeInProject } from '../../lib/ensure-assignee';
 import { dateInputToIso } from '../../lib/format';
 import { assigneeNeedsProjectAccess } from '../../lib/members';
-import { isProjectEditable } from '../../lib/project-status';
 import { queryKeys } from '../../lib/query-keys';
 import { roleForWorkspace } from '../../lib/route-workspace-role';
 
@@ -169,7 +168,7 @@ export function useProjectPageModel() {
   }
 
   const canManage = members.canManage;
-  const projectEditable = project ? isProjectEditable(project.status) : false;
+  const projectEditable = Boolean(project);
   const canCreateTask = canManage && projectEditable;
   const activity = activityPage?.items ?? [];
   const hasMoreActivity = Boolean(activityPage?.nextCursor);

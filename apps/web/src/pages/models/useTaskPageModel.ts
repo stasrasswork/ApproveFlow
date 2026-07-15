@@ -12,7 +12,6 @@ import { workspaceMemberDropdownOptions } from '../../lib/dropdown-options';
 import { ensureAssigneeInProject } from '../../lib/ensure-assignee';
 import { dateInputToIso, toDateInputValue } from '../../lib/format';
 import { assigneeNeedsProjectAccess, filterAssignableMembers } from '../../lib/members';
-import { isProjectEditable } from '../../lib/project-status';
 import { queryKeys } from '../../lib/query-keys';
 import { isAgencyRole } from '../../lib/roles';
 import { roleForWorkspace } from '../../lib/route-workspace-role';
@@ -76,13 +75,6 @@ export function useTaskPageModel() {
     ...taskLiveQueryOptions,
   });
 
-  const { data: project } = useQuery({
-    queryKey: queryKeys.project(projectId),
-    queryFn: () => projectsApi.get(projectId),
-    enabled: Boolean(projectId),
-    ...taskLiveQueryOptions,
-  });
-
   const { data: workspaceMembers = [] } = useQuery({
     queryKey: queryKeys.workspaceMembers(workspaceId),
     queryFn: () => workspacesApi.members.list(workspaceId),
@@ -105,7 +97,7 @@ export function useTaskPageModel() {
   );
 
   const agency = role ? isAgencyRole(role) : false;
-  const projectEditable = project ? isProjectEditable(project.status) : true;
+  const projectEditable = true;
   const canEditTask = agency && projectEditable && task?.status !== 'DONE';
 
   const { data: clientsOutside = [] } = useQuery({

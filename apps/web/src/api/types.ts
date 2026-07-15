@@ -1,15 +1,16 @@
-export type WorkspaceRole = 'ADMIN' | 'MANAGER' | 'MEMBER' | 'CLIENT_VIEW';
+import type {
+  NotificationType,
+  ProjectStatus,
+  TaskStatus,
+  WorkspaceRole,
+} from '@approveflow/shared';
 
-export type ProjectStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED';
-
-export type TaskStatus =
-  | 'BRIEF'
-  | 'PRODUCTION'
-  | 'INTERNAL_REVIEW'
-  | 'CLIENT_HANDOFF'
-  | 'CLIENT_APPROVAL'
-  | 'PENDING_CLOSURE'
-  | 'DONE';
+export type {
+  NotificationType,
+  ProjectStatus,
+  TaskStatus,
+  WorkspaceRole,
+};
 
 export type UserBrief = {
   id: string;
@@ -18,11 +19,6 @@ export type UserBrief = {
 };
 
 export type AuthSessionResult = { ok: true };
-
-export type AuthTokens = {
-  access_token: string;
-  refresh_token: string;
-};
 
 export type MeWorkspace = {
   id: string;
@@ -68,7 +64,7 @@ export type InviteWorkspaceResult =
 export type Notification = {
   id: string;
   userId: string;
-  type: 'TASK_CLIENT_HANDOFF' | 'TASK_UPDATE' | 'WORKSPACE_INVITE';
+  type: NotificationType;
   title: string;
   body: string;
   taskId: string | null;

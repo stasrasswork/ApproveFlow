@@ -40,5 +40,3 @@ export function getBlockingHint(status: TaskStatus): string | null {
       return null;
   }
 }
-
-export type TransitionButtonVariant = 'primary' | 'danger' | 'secondary';

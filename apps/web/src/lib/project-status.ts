@@ -15,10 +15,3 @@ export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
   PAUSED: 'bg-amber-50 text-amber-900 ring-amber-100',
   COMPLETED: 'bg-slate-100 text-slate-600 ring-slate-200',
 };
-
-
-/** Project status is informational-only in MVP and does not gate UI actions. */
-export function isProjectEditable(status: ProjectStatus): boolean {
-  void status;
-  return true;
-}
