@@ -170,10 +170,11 @@ Use `apps/web/nginx.conf` as a reference.
 1. Push the repo to GitHub.
 2. Create a **Blueprint** from `render.yaml` or create services manually:
    - Postgres database
-   - Web service from `Dockerfile.api`
-   - Static site: build `npm ci && npm run build -w web`, publish `apps/web/dist`
+   - Web service from `Dockerfile.api` (health check: `/health/ready`)
+   - Static site: build `npm ci && npm run build:shared && npm run build -w web`, publish `apps/web/dist`
 3. Set `CORS_ORIGIN` on the API to your static site URL.
 4. Set `VITE_API_URL` on the static site build to the API public URL.
+5. Run migrations once against the managed DB (`bash scripts/ops/migrate.sh` with `DATABASE_URL`).
 
 ## CI
 

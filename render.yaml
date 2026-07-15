@@ -14,7 +14,7 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile.api
-    healthCheckPath: /health
+    healthCheckPath: /health/ready
     envVars:
       - key: NODE_ENV
         value: production
@@ -50,7 +50,7 @@ services:
   - type: web
     name: approveflow-web
     runtime: static
-    buildCommand: npm ci && npm run build -w web
+    buildCommand: npm ci && npm run build:shared && npm run build -w web
     staticPublishPath: apps/web/dist
     envVars:
       - key: VITE_API_URL
