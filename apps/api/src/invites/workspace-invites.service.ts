@@ -183,10 +183,10 @@ export class WorkspaceInvitesService {
       ? 'Invite email sent.'
       : 'Invite created. Share the link with the invitee (SMTP not configured).';
 
+    // Never expose raw invite tokens in production (even when SMTP fails).
     if (
-      !sent ||
-      ENV.NODE_ENV === 'test' ||
-      (ENV.EXPOSE_DEBUG_TOKENS && ENV.NODE_ENV !== 'production')
+      ENV.NODE_ENV !== 'production' &&
+      (!sent || ENV.NODE_ENV === 'test' || ENV.EXPOSE_DEBUG_TOKENS)
     ) {
       return { status: 'pending', message, inviteToken: rawToken };
     }

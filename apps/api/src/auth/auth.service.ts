@@ -14,7 +14,6 @@ import { PasswordResetService } from './password-reset.service.js';
 import {
   ForgotPasswordDto,
   LoginDto,
-  RefreshDto,
   RegisterDto,
   ResetPasswordDto,
 } from './dto/index.js';
@@ -124,7 +123,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('User already exists');
+      throw new ConflictException('Unable to register with this email');
     }
 
     const user = await this.prisma.user.create({
@@ -202,8 +201,11 @@ export class AuthService {
     return this.passwordReset.resetPassword(dto.token, dto.password);
   }
 
-  async refresh(refreshDto: RefreshDto): Promise<AuthTokens> {
-    return this.tokens.refresh(refreshDto.refresh_token);
+  async refresh(refreshToken: string | undefined): Promise<AuthTokens> {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token required');
+    }
+    return this.tokens.refresh(refreshToken);
   }
 
   async logout(userId: string): Promise<void> {

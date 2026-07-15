@@ -28,14 +28,16 @@ export class AuthTokenService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
+    // Rotate: bump tokenVersion atomically. Reuse of an old refresh token fails.
+    const updated = await this.prisma.user.updateMany({
+      where: { id: payload.sub, tokenVersion: payload.ver },
+      data: { tokenVersion: { increment: 1 } },
     });
-    if (!user || payload.ver !== user.tokenVersion) {
+    if (updated.count === 0) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    return this.signTokens(user.id, user.tokenVersion);
+    return this.signTokens(payload.sub, payload.ver + 1);
   }
 
   async signTokens(userId: string, tokenVersion: number): Promise<AuthTokens> {

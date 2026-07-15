@@ -1,7 +1,9 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ACCESS_COOKIE } from './auth-cookies.js';
 import { JWT_SECRET } from './auth.constants.js';
 
 type JwtPayload = {
@@ -14,7 +16,10 @@ type JwtPayload = {
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private readonly prisma: PrismaService) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (req: Request) => (req?.cookies?.[ACCESS_COOKIE] as string | undefined) ?? null,
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ]),
       ignoreExpiration: false,
       secretOrKey: JWT_SECRET,
     });

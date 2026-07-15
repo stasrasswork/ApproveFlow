@@ -6,14 +6,16 @@ import {
   HttpStatus,
   Patch,
   Post,
-  UseGuards,
+  Req,
+  Res,
 } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { SkipThrottle, Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import {
   AuthService,
   AuthTokens,
@@ -22,6 +24,7 @@ import {
   RegisterResult,
   ResetPasswordResult,
 } from './auth.service.js';
+import { clearAuthCookies, REFRESH_COOKIE, setAuthCookies } from './auth-cookies.js';
 import { AuthUser, CurrentUser } from './current-user.decorator.js';
 import { Public } from './public.decorator.js';
 import {
@@ -34,22 +37,34 @@ import {
   UpdateProfileDto,
 } from './dto/index.js';
 
+export type AuthSessionResult = { ok: true } | AuthTokens;
+
 @ApiTags('auth')
 @Controller('auth')
-@UseGuards(ThrottlerGuard)
-@Throttle({ default: { limit: 20, ttl: 60_000 } })
+@Throttle({ default: { limit: 30, ttl: 60_000 } })
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  @ApiOperation({ summary: 'Sign in with email and password' })
-  login(@Body() loginDto: LoginDto): Promise<AuthTokens> {
-    return this.authService.login(loginDto);
+  @ApiOperation({
+    summary: 'Sign in with email and password',
+    description:
+      'Sets HttpOnly cookies. Does not return tokens in the JSON body (browser-safe).',
+  })
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthSessionResult> {
+    const tokens = await this.authService.login(loginDto);
+    setAuthCookies(res, tokens);
+    return { ok: true };
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.CREATED)
   @Post('register')
   @ApiOperation({ summary: 'Create account (optionally accept workspace invite)' })
@@ -58,14 +73,30 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
-  @ApiOperation({ summary: 'Refresh access token' })
-  refresh(@Body() refreshDto: RefreshDto): Promise<AuthTokens> {
-    return this.authService.refresh(refreshDto);
+  @ApiOperation({
+    summary: 'Refresh access token',
+    description:
+      'Cookie sessions get new cookies and `{ ok: true }`. Passing `refresh_token` in the body returns new tokens for API clients.',
+  })
+  async refresh(
+    @Body() refreshDto: RefreshDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthSessionResult> {
+    const fromBody = Boolean(refreshDto.refresh_token?.trim());
+    const refreshToken =
+      (req.cookies?.[REFRESH_COOKIE] as string | undefined) ??
+      refreshDto.refresh_token;
+    const tokens = await this.authService.refresh(refreshToken);
+    setAuthCookies(res, tokens);
+    return fromBody ? tokens : { ok: true };
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @Post('forgot-password')
   @ApiOperation({ summary: 'Request password reset email' })
@@ -76,6 +107,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @Post('reset-password')
   @ApiOperation({ summary: 'Set new password with reset token' })
@@ -99,8 +131,12 @@ export class AuthController {
   @Post('logout')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Invalidate current session tokens' })
-  logout(@CurrentUser() user: AuthUser): Promise<void> {
-    return this.authService.logout(user.userId);
+  async logout(
+    @CurrentUser() user: AuthUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    await this.authService.logout(user.userId);
+    clearAuthCookies(res);
   }
 
   @SkipThrottle()

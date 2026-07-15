@@ -8,8 +8,13 @@ export function createThrottlerOptions(): ThrottlerModuleOptions {
     ? new ThrottlerStorageRedisService(redisUrl)
     : undefined;
 
+  const limit = ENV.NODE_ENV === 'test' ? 10_000 : 120;
+
   return {
-    throttlers: [{ name: 'default', ttl: 60_000, limit: 20 }],
+    throttlers: [{ name: 'default', ttl: 60_000, limit }],
+    // E2E suites login many times from one IP; enable only in auth-throttling.e2e-spec.
+    skipIf: () =>
+      ENV.NODE_ENV === 'test' && process.env.E2E_ENABLE_THROTTLE !== 'true',
     ...(storage ? { storage } : {}),
   };
 }

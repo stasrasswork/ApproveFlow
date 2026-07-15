@@ -240,7 +240,7 @@ describe('AuthService', () => {
   describe('refresh', () => {
     it('delegates refresh token validation', async () => {
       await expect(
-        service.refresh({ refresh_token: 'refresh-token' }),
+        service.refresh('refresh-token'),
       ).resolves.toEqual({
         access_token: 'access-token',
         refresh_token: 'refresh-token',

@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module.js';
+import { CsrfGuard } from './auth/csrf.guard.js';
 import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
 import { createThrottlerOptions } from './config/throttler.config.js';
 import { HealthModule } from './health/health.module.js';
@@ -26,6 +27,10 @@ import { WorkspacesModule } from './workspaces/workspaces.module.js';
     ProjectsModule,
     WorkspacesModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: CsrfGuard },
+  ],
 })
 export class AppModule {}

@@ -1,19 +1,20 @@
 import request from 'supertest';
 import { WorkspaceRole } from '../../src/generated/prisma/client.js';
-import { authHeader, loginAs } from '../helpers/auth.js';
+import { authHeader, loginAs, loginTokens } from '../helpers/auth.js';
 import { describeWithSeededApp } from '../helpers/seeded-app.js';
 import { SEED_IDS, SEED_PASSWORD } from '../helpers/seed-e2e.js';
 
 describeWithSeededApp('Auth (e2e)', (getContext) => {
-  it('POST /auth/login returns tokens for seed user', async () => {
+  it('POST /auth/login sets session cookies without tokens in body', async () => {
     const { app } = getContext();
     const response = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: 'manager@test.local', password: SEED_PASSWORD })
       .expect(200);
 
-    expect(response.body.access_token).toEqual(expect.any(String));
-    expect(response.body.refresh_token).toEqual(expect.any(String));
+    expect(response.body).toEqual({ ok: true });
+    expect(response.body.access_token).toBeUndefined();
+    expect(response.body.refresh_token).toBeUndefined();
   });
 
   it('POST /auth/login rejects invalid credentials', async () => {
@@ -43,38 +44,101 @@ describeWithSeededApp('Auth (e2e)', (getContext) => {
     expect(response.body.passwordHash).toBeUndefined();
   });
 
-  it('POST /auth/refresh returns new tokens', async () => {
+  it('POST /auth/login sets httpOnly cookies for browser clients', async () => {
+    const { app } = getContext();
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'manager@test.local', password: SEED_PASSWORD })
+      .expect(200);
+
+    const setCookie = response.headers['set-cookie'];
+    const cookies = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
+    expect(cookies).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('access_token='),
+        expect.stringContaining('refresh_token='),
+        expect.stringContaining('HttpOnly'),
+      ]),
+    );
+  });
+
+  it('cookie session requires CSRF header for mutating requests', async () => {
     const { app } = getContext();
     const loginResponse = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: 'manager@test.local', password: SEED_PASSWORD })
       .expect(200);
 
+    const setCookie = loginResponse.headers['set-cookie'];
+    const cookies = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
+    const cookieHeader = cookies.map((cookie) => cookie.split(';')[0]).join('; ');
+
+    await request(app.getHttpServer())
+      .patch('/auth/me')
+      .set('Cookie', cookieHeader)
+      .send({ name: 'Manager' })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .patch('/auth/me')
+      .set('Cookie', cookieHeader)
+      .set('X-Requested-With', 'ApproveFlow')
+      .send({ name: 'Manager Updated' })
+      .expect(200);
+  });
+
+  it('POST /auth/refresh via cookie returns ok without tokens in body', async () => {
+    const { app } = getContext();
+    const loginResponse = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'manager@test.local', password: SEED_PASSWORD })
+      .expect(200);
+
+    const setCookie = loginResponse.headers['set-cookie'];
+    const cookies = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
+    const cookieHeader = cookies.map((cookie) => cookie.split(';')[0]).join('; ');
+
     const response = await request(app.getHttpServer())
       .post('/auth/refresh')
-      .send({ refresh_token: loginResponse.body.refresh_token })
+      .set('Cookie', cookieHeader)
+      .send({})
+      .expect(200);
+
+    expect(response.body).toEqual({ ok: true });
+    expect(response.body.access_token).toBeUndefined();
+  });
+
+  it('POST /auth/refresh with body token returns rotated tokens', async () => {
+    const { app } = getContext();
+    const { refreshToken } = await loginTokens(app, 'manager@test.local', SEED_PASSWORD);
+
+    const response = await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refresh_token: refreshToken })
       .expect(200);
 
     expect(response.body.access_token).toEqual(expect.any(String));
     expect(response.body.refresh_token).toEqual(expect.any(String));
+
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refresh_token: refreshToken })
+      .expect(401);
   });
 
   it('POST /auth/refresh rejects access token', async () => {
     const { app } = getContext();
-    const loginResponse = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: 'manager@test.local', password: SEED_PASSWORD })
-      .expect(200);
+    const { accessToken } = await loginTokens(app, 'manager@test.local', SEED_PASSWORD);
 
     await request(app.getHttpServer())
       .post('/auth/refresh')
-      .send({ refresh_token: loginResponse.body.access_token })
+      .send({ refresh_token: accessToken })
       .expect(401);
   });
 
   it('GET /projects/:id requires authentication', async () => {
     const { app } = getContext();
-    await request(app.getHttpServer()).get('/projects/proj_demo').expect(401);
+    await request(app.getHttpServer()).get(`/projects/${SEED_IDS.project}`).expect(401);
   });
 
   it('GET /auth/me requires authentication', async () => {

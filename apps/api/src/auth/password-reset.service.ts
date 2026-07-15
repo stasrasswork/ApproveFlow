@@ -49,10 +49,12 @@ export class PasswordResetService {
       text: `Use this link to reset your password (valid for 1 hour):\n${resetUrl}`,
     });
 
+    // Never expose raw reset tokens in production (even when SMTP fails).
     if (
-      !sent ||
-      ENV.NODE_ENV === 'test' ||
-      (ENV.EXPOSE_DEBUG_TOKENS && ENV.NODE_ENV !== 'production')
+      ENV.NODE_ENV !== 'production' &&
+      (!sent ||
+        ENV.NODE_ENV === 'test' ||
+        ENV.EXPOSE_DEBUG_TOKENS)
     ) {
       return { message, resetToken: rawToken };
     }

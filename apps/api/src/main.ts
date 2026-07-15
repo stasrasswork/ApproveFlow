@@ -4,22 +4,32 @@ import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import { ENV } from './config/env.js';
 
 function configureCors(app: Awaited<ReturnType<typeof NestFactory.create>>): void {
   const corsOrigin = ENV.CORS_ORIGIN;
 
+  if (!corsOrigin && ENV.NODE_ENV === 'production') {
+    throw new Error('CORS_ORIGIN must be set when NODE_ENV=production');
+  }
+
   app.enableCors({
     origin: corsOrigin
       ? corsOrigin.split(',').map((origin) => origin.trim())
-      : true,
+      : ['http://localhost:5173', 'http://localhost:3000'],
     credentials: true,
   });
 }
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // Correct client IPs (and throttling) behind nginx / load balancers.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  app.use(helmet());
+  app.use(cookieParser());
   configureCors(app);
   app.useGlobalPipes(
     new ValidationPipe({
