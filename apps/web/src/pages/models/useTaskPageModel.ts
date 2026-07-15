@@ -7,7 +7,7 @@ import { useAuth } from '../../auth/useAuth';
 import { useHandoffClientOptions } from '../../hooks/useHandoffClientOptions';
 import { useTaskMutations } from '../../hooks/useTaskMutations';
 import { getApiErrorMessage } from '../../lib/api-error';
-import { liveQueryOptions } from '../../lib/constants';
+import { taskLiveQueryOptions } from '../../lib/constants';
 import { workspaceMemberDropdownOptions } from '../../lib/dropdown-options';
 import { ensureAssigneeInProject } from '../../lib/ensure-assignee';
 import { dateInputToIso, toDateInputValue } from '../../lib/format';
@@ -45,42 +45,42 @@ export function useTaskPageModel() {
     queryKey: queryKeys.task(taskId),
     queryFn: () => tasksApi.get(taskId),
     enabled: Boolean(taskId),
-    ...liveQueryOptions,
+    ...taskLiveQueryOptions,
   });
 
   const { data: transitions } = useQuery({
     queryKey: queryKeys.taskTransitions(taskId),
     queryFn: () => tasksApi.allowedTransitions(taskId),
     enabled: Boolean(taskId),
-    ...liveQueryOptions,
+    ...taskLiveQueryOptions,
   });
 
   const { data: comments = [] } = useQuery({
     queryKey: queryKeys.comments(taskId),
     queryFn: () => commentsApi.list(taskId),
     enabled: Boolean(taskId),
-    ...liveQueryOptions,
+    ...taskLiveQueryOptions,
   });
 
   const { data: events = [] } = useQuery({
     queryKey: queryKeys.taskEvents(taskId),
     queryFn: () => tasksApi.events(taskId),
     enabled: Boolean(taskId),
-    ...liveQueryOptions,
+    ...taskLiveQueryOptions,
   });
 
   const { data: dueChanges = [] } = useQuery({
     queryKey: queryKeys.taskDueChanges(taskId),
     queryFn: () => tasksApi.dueChanges(taskId),
     enabled: Boolean(taskId),
-    ...liveQueryOptions,
+    ...taskLiveQueryOptions,
   });
 
   const { data: project } = useQuery({
     queryKey: queryKeys.project(projectId),
     queryFn: () => projectsApi.get(projectId),
     enabled: Boolean(projectId),
-    ...liveQueryOptions,
+    ...taskLiveQueryOptions,
   });
 
   const { data: workspaceMembers = [] } = useQuery({

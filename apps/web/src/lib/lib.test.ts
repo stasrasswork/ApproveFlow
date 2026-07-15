@@ -3,7 +3,7 @@ import {
   assigneeNeedsProjectAccess,
   filterAssignableMembers,
 } from './members';
-import { isValidSlug, slugify } from './slug';
+import { isValidSlug, slugify } from '@approveflow/shared';
 import { getEventTypeLabel } from './task-events';
 import { isAgencyRole } from './roles';
 import { roleForWorkspace } from './route-workspace-role';

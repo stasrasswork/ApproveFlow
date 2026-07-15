@@ -12,7 +12,7 @@ import { LoadingState } from '../components/ui/LoadingState';
 import { PageError } from '../components/ui/PageError';
 import { Input, Textarea, Field, FormStack, FormActions } from '../components/ui/Form';
 import { getApiErrorMessage } from '../lib/api-error';
-import { liveQueryOptions } from '../lib/constants';
+import { listLiveQueryOptions } from '../lib/constants';
 import { queryKeys } from '../lib/query-keys';
 import { roleForWorkspace } from '../lib/route-workspace-role';
 import { isAgencyRole } from '../lib/roles';
@@ -35,7 +35,7 @@ export function ProjectsPage() {
     queryKey: queryKeys.projects(workspaceId),
     queryFn: () => projectsApi.list(workspaceId),
     enabled: Boolean(workspaceId),
-    ...liveQueryOptions,
+    ...listLiveQueryOptions,
   });
 
   const createMutation = useMutation({

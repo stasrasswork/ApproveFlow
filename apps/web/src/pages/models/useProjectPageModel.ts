@@ -6,7 +6,7 @@ import type { ProjectStatus } from '../../api/types';
 import { useAuth } from '../../auth/useAuth';
 import { useProjectMembers } from '../../hooks/useProjectMembers';
 import { getApiErrorMessage } from '../../lib/api-error';
-import { ACTIVITY_PAGE_SIZE, liveQueryOptions } from '../../lib/constants';
+import { ACTIVITY_PAGE_SIZE, listLiveQueryOptions } from '../../lib/constants';
 import { workspaceMemberDropdownOptions } from '../../lib/dropdown-options';
 import { ensureAssigneeInProject } from '../../lib/ensure-assignee';
 import { dateInputToIso } from '../../lib/format';
@@ -44,21 +44,21 @@ export function useProjectPageModel() {
     queryKey: queryKeys.project(projectId),
     queryFn: () => projectsApi.get(projectId),
     enabled: Boolean(projectId),
-    ...liveQueryOptions,
+    ...listLiveQueryOptions,
   });
 
   const { data: stats } = useQuery({
     queryKey: queryKeys.projectStats(projectId),
     queryFn: () => projectsApi.stats(projectId),
     enabled: Boolean(projectId),
-    ...liveQueryOptions,
+    ...listLiveQueryOptions,
   });
 
   const { data: activityPage } = useQuery({
     queryKey: [...queryKeys.projectActivity(projectId), activityLimit],
     queryFn: () => projectsApi.activity(projectId, { limit: activityLimit }),
     enabled: Boolean(projectId),
-    ...liveQueryOptions,
+    ...listLiveQueryOptions,
   });
 
   const {
@@ -69,7 +69,7 @@ export function useProjectPageModel() {
     queryKey: queryKeys.tasks(projectId),
     queryFn: () => tasksApi.list(projectId),
     enabled: Boolean(projectId),
-    ...liveQueryOptions,
+    ...listLiveQueryOptions,
   });
 
   const showAssigneeAccessHint = assigneeNeedsProjectAccess(

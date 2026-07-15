@@ -13,6 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Project } from '../generated/prisma/client.js';
+import { ParseCuidPipe } from '../common/parse-cuid.pipe.js';
 import {
   AuthUser,
   CurrentUser,
@@ -30,7 +31,7 @@ export class WorkspaceProjectsController {
   @ApiOperation({ summary: 'List projects in a workspace' })
   findByWorkspace(
     @CurrentUser() user: AuthUser,
-    @Param('workspaceId') workspaceId: string,
+    @Param('workspaceId', ParseCuidPipe) workspaceId: string,
   ): Promise<Project[]> {
     return this.projectsService.findByWorkspace(workspaceId, user.userId);
   }
@@ -40,7 +41,7 @@ export class WorkspaceProjectsController {
   @ApiOperation({ summary: 'Create a project in a workspace' })
   create(
     @CurrentUser() user: AuthUser,
-    @Param('workspaceId') workspaceId: string,
+    @Param('workspaceId', ParseCuidPipe) workspaceId: string,
     @Body() dto: CreateProjectDto,
   ): Promise<Project> {
     return this.projectsService.create(workspaceId, user.userId, dto);

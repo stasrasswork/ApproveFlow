@@ -25,7 +25,7 @@ export {
   SLUG_PATTERN,
   SLUG_VALIDATION_MESSAGE,
   slugify,
-} from './slug.js';
+} from '@approveflow/shared';
 export { buildTaskListWhere, type TaskListWhere } from './task-scope.js';
 export { userBriefSelect, type UserBrief } from './user-brief.js';
 export { loadWorkspaceRoleMap } from './workspace-role-map.js';

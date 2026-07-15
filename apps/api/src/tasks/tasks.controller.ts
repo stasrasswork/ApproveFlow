@@ -11,6 +11,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { TaskStatus } from '../generated/prisma/client.js';
+import { ParseCuidPipe } from '../common/parse-cuid.pipe.js';
 import {
   AuthUser,
   CurrentUser,
@@ -38,7 +39,7 @@ export class TasksController {
   @ApiOperation({ summary: 'Get task by id' })
   findOne(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
+    @Param('id', ParseCuidPipe) id: string,
   ): Promise<TaskView> {
     return this.tasksService.findOne(id, user.userId);
   }
@@ -47,7 +48,7 @@ export class TasksController {
   @ApiOperation({ summary: 'List task status change events' })
   getEvents(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
+    @Param('id', ParseCuidPipe) id: string,
   ): Promise<TaskEventView[]> {
     return this.tasksService.getEvents(id, user.userId);
   }
@@ -56,7 +57,7 @@ export class TasksController {
   @ApiOperation({ summary: 'List task due date change history' })
   getDueChanges(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
+    @Param('id', ParseCuidPipe) id: string,
   ): Promise<TaskDueChangeView[]> {
     return this.tasksService.getDueChanges(id, user.userId);
   }
@@ -65,7 +66,7 @@ export class TasksController {
   @ApiOperation({ summary: 'Get allowed status transitions for current user' })
   getAllowedTransitions(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
+    @Param('id', ParseCuidPipe) id: string,
   ): Promise<{ from: TaskStatus; targets: AllowedTransitionTarget[] }> {
     return this.tasksService.getAllowedTransitions(id, user.userId);
   }
@@ -74,7 +75,7 @@ export class TasksController {
   @ApiOperation({ summary: 'Update task fields' })
   update(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
+    @Param('id', ParseCuidPipe) id: string,
     @Body() dto: UpdateTaskDto,
   ): Promise<TaskView> {
     return this.tasksService.update(id, user.userId, dto);
@@ -84,7 +85,7 @@ export class TasksController {
   @ApiOperation({ summary: 'Transition task status' })
   transition(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
+    @Param('id', ParseCuidPipe) id: string,
     @Body() dto: TransitionTaskDto,
   ): Promise<TaskView> {
     return this.tasksService.transition(id, user.userId, dto);
@@ -94,7 +95,7 @@ export class TasksController {
   @ApiOperation({ summary: 'Update task due date' })
   updateDue(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
+    @Param('id', ParseCuidPipe) id: string,
     @Body() dto: UpdateTaskDueDto,
   ): Promise<TaskView> {
     return this.tasksService.updateDue(id, user.userId, dto);

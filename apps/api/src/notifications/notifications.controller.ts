@@ -1,5 +1,6 @@
 import { Controller, Get, HttpCode, HttpStatus, Param, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ParseCuidPipe } from '../common/parse-cuid.pipe.js';
 import { AuthUser, CurrentUser } from '../auth/current-user.decorator.js';
 import {
   NotificationView,
@@ -38,7 +39,7 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Mark one notification as read' })
   markRead(
     @CurrentUser() user: AuthUser,
-    @Param('id') notificationId: string,
+    @Param('id', ParseCuidPipe) notificationId: string,
   ): Promise<void> {
     return this.notificationsService.markRead(user.userId, notificationId);
   }

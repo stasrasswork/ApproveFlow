@@ -13,6 +13,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { ParseCuidPipe } from '../common/parse-cuid.pipe.js';
 import {
   AuthUser,
   CurrentUser,
@@ -32,7 +33,7 @@ export class ProjectMembersController {
   @ApiOperation({ summary: 'List project members' })
   list(
     @CurrentUser() user: AuthUser,
-    @Param('projectId') projectId: string,
+    @Param('projectId', ParseCuidPipe) projectId: string,
   ): Promise<ProjectMemberWithUser[]> {
     return this.projectMembersService.list(projectId, user.userId);
   }
@@ -42,7 +43,7 @@ export class ProjectMembersController {
   @ApiOperation({ summary: 'Add a member to a project' })
   add(
     @CurrentUser() user: AuthUser,
-    @Param('projectId') projectId: string,
+    @Param('projectId', ParseCuidPipe) projectId: string,
     @Body() dto: AddProjectMemberDto,
   ): Promise<ProjectMemberWithUser> {
     return this.projectMembersService.add(projectId, user.userId, dto);
@@ -53,8 +54,8 @@ export class ProjectMembersController {
   @ApiOperation({ summary: 'Remove a member from a project' })
   remove(
     @CurrentUser() user: AuthUser,
-    @Param('projectId') projectId: string,
-    @Param('userId') memberUserId: string,
+    @Param('projectId', ParseCuidPipe) projectId: string,
+    @Param('userId', ParseCuidPipe) memberUserId: string,
   ): Promise<void> {
     return this.projectMembersService.remove(
       projectId,

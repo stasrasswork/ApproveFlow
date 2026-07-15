@@ -15,6 +15,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Workspace } from '../generated/prisma/client.js';
+import { ParseCuidPipe } from '../common/parse-cuid.pipe.js';
 import {
   AuthUser,
   CurrentUser,
@@ -41,7 +42,7 @@ export class WorkspacesController {
   @ApiOperation({ summary: 'Get workspace by id' })
   findOne(
     @CurrentUser() user: AuthUser,
-    @Param('id') workspaceId: string,
+    @Param('id', ParseCuidPipe) workspaceId: string,
   ): Promise<WorkspaceWithRole> {
     return this.workspacesService.findOne(workspaceId, user.userId);
   }
@@ -60,7 +61,7 @@ export class WorkspacesController {
   @ApiOperation({ summary: 'Update workspace name or slug' })
   update(
     @CurrentUser() user: AuthUser,
-    @Param('id') workspaceId: string,
+    @Param('id', ParseCuidPipe) workspaceId: string,
     @Body() dto: UpdateWorkspaceDto,
   ): Promise<Workspace> {
     return this.workspacesService.update(workspaceId, user.userId, dto);
@@ -71,7 +72,7 @@ export class WorkspacesController {
   @ApiOperation({ summary: 'Delete workspace' })
   delete(
     @CurrentUser() user: AuthUser,
-    @Param('id') workspaceId: string,
+    @Param('id', ParseCuidPipe) workspaceId: string,
   ): Promise<void> {
     return this.workspacesService.delete(workspaceId, user.userId);
   }

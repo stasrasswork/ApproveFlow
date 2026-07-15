@@ -12,6 +12,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { ParseCuidPipe } from '../../common/parse-cuid.pipe.js';
 import {
   AuthUser,
   CurrentUser,
@@ -29,7 +30,7 @@ export class CommentsController {
   @ApiOperation({ summary: 'List comments on a task' })
   findByTask(
     @CurrentUser() user: AuthUser,
-    @Param('taskId') taskId: string,
+    @Param('taskId', ParseCuidPipe) taskId: string,
   ): Promise<CommentView[]> {
     return this.commentsService.findByTask(taskId, user.userId);
   }
@@ -39,7 +40,7 @@ export class CommentsController {
   @ApiOperation({ summary: 'Add a comment to a task' })
   create(
     @CurrentUser() user: AuthUser,
-    @Param('taskId') taskId: string,
+    @Param('taskId', ParseCuidPipe) taskId: string,
     @Body() dto: CreateCommentDto,
   ): Promise<CommentView> {
     return this.commentsService.create(taskId, user.userId, dto);

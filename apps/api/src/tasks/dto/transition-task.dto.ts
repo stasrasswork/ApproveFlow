@@ -5,6 +5,7 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
+import { IsCuid } from '../../common/is-cuid.js';
 import { TaskStatus } from '../../generated/prisma/client.js';
 
 export class TransitionTaskDto {
@@ -18,6 +19,6 @@ export class TransitionTaskDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsCuid({ each: true })
   clientUserIds?: string[];
 }

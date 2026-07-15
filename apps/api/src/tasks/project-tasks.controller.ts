@@ -12,6 +12,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { ParseCuidPipe } from '../common/parse-cuid.pipe.js';
 import {
   AuthUser,
   CurrentUser,
@@ -29,7 +30,7 @@ export class ProjectTasksController {
   @ApiOperation({ summary: 'List tasks in a project' })
   findByProject(
     @CurrentUser() user: AuthUser,
-    @Param('projectId') projectId: string,
+    @Param('projectId', ParseCuidPipe) projectId: string,
   ): Promise<TaskView[]> {
     return this.tasksService.findByProject(projectId, user.userId);
   }
@@ -39,7 +40,7 @@ export class ProjectTasksController {
   @ApiOperation({ summary: 'Create a task in a project' })
   create(
     @CurrentUser() user: AuthUser,
-    @Param('projectId') projectId: string,
+    @Param('projectId', ParseCuidPipe) projectId: string,
     @Body() dto: CreateTaskDto,
   ): Promise<TaskView> {
     return this.tasksService.create(projectId, user.userId, dto);

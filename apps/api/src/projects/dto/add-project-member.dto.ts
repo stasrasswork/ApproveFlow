@@ -1,7 +1,8 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty } from 'class-validator';
+import { IsCuid } from '../../common/is-cuid.js';
 
 export class AddProjectMemberDto {
-  @IsString()
+  @IsCuid()
   @IsNotEmpty()
   userId!: string;
 }

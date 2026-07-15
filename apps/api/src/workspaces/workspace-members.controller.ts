@@ -14,6 +14,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { ParseCuidPipe } from '../common/parse-cuid.pipe.js';
 import {
   AuthUser,
   CurrentUser,
@@ -40,7 +41,7 @@ export class WorkspaceMembersController {
   @ApiOperation({ summary: 'List workspace members' })
   list(
     @CurrentUser() user: AuthUser,
-    @Param('workspaceId') workspaceId: string,
+    @Param('workspaceId', ParseCuidPipe) workspaceId: string,
   ): Promise<WorkspaceMemberWithUser[]> {
     return this.workspaceMembersService.list(workspaceId, user.userId);
   }
@@ -50,7 +51,7 @@ export class WorkspaceMembersController {
   @ApiOperation({ summary: 'Invite or add a workspace member' })
   invite(
     @CurrentUser() user: AuthUser,
-    @Param('workspaceId') workspaceId: string,
+    @Param('workspaceId', ParseCuidPipe) workspaceId: string,
     @Body() dto: InviteWorkspaceMemberDto,
   ): Promise<InviteWorkspaceResult> {
     return this.workspaceMembersService.invite(workspaceId, user.userId, dto);
@@ -60,8 +61,8 @@ export class WorkspaceMembersController {
   @ApiOperation({ summary: 'Update member role' })
   updateRole(
     @CurrentUser() user: AuthUser,
-    @Param('workspaceId') workspaceId: string,
-    @Param('userId') memberUserId: string,
+    @Param('workspaceId', ParseCuidPipe) workspaceId: string,
+    @Param('userId', ParseCuidPipe) memberUserId: string,
     @Body() dto: UpdateWorkspaceMemberDto,
   ): Promise<WorkspaceMemberWithUser> {
     return this.workspaceMembersService.updateRole(
@@ -77,8 +78,8 @@ export class WorkspaceMembersController {
   @ApiOperation({ summary: 'Remove member from workspace' })
   remove(
     @CurrentUser() user: AuthUser,
-    @Param('workspaceId') workspaceId: string,
-    @Param('userId') memberUserId: string,
+    @Param('workspaceId', ParseCuidPipe) workspaceId: string,
+    @Param('userId', ParseCuidPipe) memberUserId: string,
   ): Promise<void> {
     return this.workspaceMembersService.remove(
       workspaceId,
