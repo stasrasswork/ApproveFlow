@@ -15,6 +15,8 @@
     "build:web": "npm run build -w web",
     "lint": "npm run lint -w api && npm run lint -w web",
     "check:migrations": "node scripts/check-migration-names.mjs",
+    "check:env:prod": "node scripts/check-env-prod.mjs",
+    "dev:init": "bash scripts/dev-init.sh",
     "test": "npm run test:api && npm run test:web",
     "test:api": "npm run test -w api",
     "test:web": "npm run test -w web",

@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  isSmtpConfigured,
+  isWeakJwtSecret,
+  smtpRequiredForProduction,
+} from './env-validation.js';
 
 const envSchema = z
   .object({
@@ -20,11 +25,69 @@ const envSchema = z
     EXPOSE_DEBUG_TOKENS: z.enum(['true', 'false']).default('false'),
   })
   .superRefine((value, ctx) => {
-    if (value.NODE_ENV === 'production' && !value.JWT_SECRET) {
+    if (value.NODE_ENV !== 'production') {
+      return;
+    }
+
+    if (!value.JWT_SECRET) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['JWT_SECRET'],
         message: 'JWT_SECRET must be set when NODE_ENV=production',
+      });
+    } else if (isWeakJwtSecret(value.JWT_SECRET)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['JWT_SECRET'],
+        message:
+          'JWT_SECRET must be at least 32 characters and not a placeholder value',
+      });
+    }
+
+    if (!value.CORS_ORIGIN?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['CORS_ORIGIN'],
+        message: 'CORS_ORIGIN must be set when NODE_ENV=production',
+      });
+    }
+
+    if (!process.env.APP_URL?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['APP_URL'],
+        message: 'APP_URL must be set when NODE_ENV=production',
+      });
+    }
+
+    if (value.EXPOSE_DEBUG_TOKENS === 'true') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['EXPOSE_DEBUG_TOKENS'],
+        message: 'EXPOSE_DEBUG_TOKENS must be false in production',
+      });
+    }
+
+    try {
+      new URL(value.APP_URL);
+    } catch {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['APP_URL'],
+        message: 'APP_URL must be a valid URL',
+      });
+      return;
+    }
+
+    if (
+      smtpRequiredForProduction(value.APP_URL) &&
+      !isSmtpConfigured(value)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SMTP_HOST'],
+        message:
+          'SMTP_HOST and SMTP_FROM are required in production when APP_URL is not localhost',
       });
     }
   });
