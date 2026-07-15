@@ -15,6 +15,10 @@ export type HealthResult = {
 export class HealthService {
   constructor(private readonly prisma: PrismaService) {}
 
+  live(): { status: 'ok'; service: 'approveflow-api' } {
+    return { status: 'ok', service: 'approveflow-api' };
+  }
+
   async check(): Promise<HealthResult> {
     const checks: HealthResult['checks'] = {
       database: await this.checkDatabase(),

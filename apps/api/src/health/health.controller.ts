@@ -13,9 +13,15 @@ import { HealthResult, HealthService } from './health.service.js';
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
-  @Get()
-  @ApiOperation({ summary: 'Health check' })
-  async check(): Promise<HealthResult> {
+  @Get('live')
+  @ApiOperation({ summary: 'Liveness probe' })
+  live(): { status: 'ok'; service: 'approveflow-api' } {
+    return this.healthService.live();
+  }
+
+  @Get('ready')
+  @ApiOperation({ summary: 'Readiness probe' })
+  async ready(): Promise<HealthResult> {
     const result = await this.healthService.check();
 
     if (result.status === 'error') {
@@ -24,4 +30,11 @@ export class HealthController {
 
     return result;
   }
+
+  @Get()
+  @ApiOperation({ summary: 'Health check (alias for readiness)' })
+  async check(): Promise<HealthResult> {
+    return this.ready();
+  }
 }
+
