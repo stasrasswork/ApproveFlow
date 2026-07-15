@@ -49,8 +49,6 @@
     "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^11.0.21",
     "@nestjs/testing": "^11.1.21",
-    "@swc/cli": "^0.8.1",
-    "@swc/core": "^1.15.33",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
