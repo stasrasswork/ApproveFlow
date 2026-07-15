@@ -87,7 +87,7 @@ describeWithSeededApp('Auth (e2e)', (getContext) => {
       .expect(200);
   });
 
-  it('POST /auth/refresh via cookie returns ok without tokens in body', async () => {
+  it('POST /auth/refresh via cookie requires CSRF and returns ok without tokens', async () => {
     const { app } = getContext();
     const loginResponse = await request(app.getHttpServer())
       .post('/auth/login')
@@ -98,9 +98,16 @@ describeWithSeededApp('Auth (e2e)', (getContext) => {
     const cookies = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
     const cookieHeader = cookies.map((cookie) => cookie.split(';')[0]).join('; ');
 
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .set('Cookie', cookieHeader)
+      .send({})
+      .expect(403);
+
     const response = await request(app.getHttpServer())
       .post('/auth/refresh')
       .set('Cookie', cookieHeader)
+      .set('X-Requested-With', 'ApproveFlow')
       .send({})
       .expect(200);
 
@@ -114,6 +121,7 @@ describeWithSeededApp('Auth (e2e)', (getContext) => {
 
     const response = await request(app.getHttpServer())
       .post('/auth/refresh')
+      .set('X-Requested-With', 'ApproveFlow')
       .send({ refresh_token: refreshToken })
       .expect(200);
 
@@ -122,6 +130,7 @@ describeWithSeededApp('Auth (e2e)', (getContext) => {
 
     await request(app.getHttpServer())
       .post('/auth/refresh')
+      .set('X-Requested-With', 'ApproveFlow')
       .send({ refresh_token: refreshToken })
       .expect(401);
   });
@@ -132,6 +141,7 @@ describeWithSeededApp('Auth (e2e)', (getContext) => {
 
     await request(app.getHttpServer())
       .post('/auth/refresh')
+      .set('X-Requested-With', 'ApproveFlow')
       .send({ refresh_token: accessToken })
       .expect(401);
   });

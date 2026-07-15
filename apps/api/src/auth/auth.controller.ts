@@ -8,6 +8,7 @@ import {
   Post,
   Req,
   Res,
+  UnauthorizedException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import {
@@ -27,6 +28,7 @@ import {
 import { clearAuthCookies, REFRESH_COOKIE, setAuthCookies } from './auth-cookies.js';
 import { AuthUser, CurrentUser } from './current-user.decorator.js';
 import { Public } from './public.decorator.js';
+import { SkipCsrf } from './skip-csrf.decorator.js';
 import {
   AcceptInviteDto,
   ForgotPasswordDto,
@@ -46,6 +48,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @SkipCsrf()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @Post('login')
@@ -64,6 +67,7 @@ export class AuthController {
   }
 
   @Public()
+  @SkipCsrf()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.CREATED)
   @Post('register')
@@ -79,23 +83,28 @@ export class AuthController {
   @ApiOperation({
     summary: 'Refresh access token',
     description:
-      'Cookie sessions get new cookies and `{ ok: true }`. Passing `refresh_token` in the body returns new tokens for API clients.',
+      'Body `refresh_token` (API clients) returns new tokens. Cookie-only sessions return `{ ok: true }` and require CSRF header.',
   })
   async refresh(
     @Body() refreshDto: RefreshDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthSessionResult> {
-    const fromBody = Boolean(refreshDto.refresh_token?.trim());
-    const refreshToken =
-      (req.cookies?.[REFRESH_COOKIE] as string | undefined) ??
-      refreshDto.refresh_token;
+    const bodyToken = refreshDto.refresh_token?.trim();
+    const cookieToken = req.cookies?.[REFRESH_COOKIE] as string | undefined;
+    // Prefer body when provided so API clients are not overridden by leftover cookies.
+    const refreshToken = bodyToken || cookieToken;
+    if (!refreshToken) {
+      throw new UnauthorizedException('Missing refresh token');
+    }
+
     const tokens = await this.authService.refresh(refreshToken);
     setAuthCookies(res, tokens);
-    return fromBody ? tokens : { ok: true };
+    return bodyToken ? tokens : { ok: true };
   }
 
   @Public()
+  @SkipCsrf()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @Post('forgot-password')
@@ -107,6 +116,7 @@ export class AuthController {
   }
 
   @Public()
+  @SkipCsrf()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @Post('reset-password')

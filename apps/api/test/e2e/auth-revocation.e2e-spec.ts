@@ -32,6 +32,7 @@ describeWithSeededApp('Auth session revocation (e2e)', (getContext) => {
 
     await request(app.getHttpServer())
       .post('/auth/refresh')
+      .set('X-Requested-With', 'ApproveFlow')
       .send({ refresh_token: tokens.refreshToken })
       .expect(401);
 
