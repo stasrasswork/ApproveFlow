@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import {
   ClientApprovalType,
   TaskStatus,
@@ -9,7 +9,6 @@ import {
   listProjectClientUserIds,
   userBriefSelect,
 } from '../common/index.js';
-import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TransitionTaskDto } from './dto/index.js';
 import {
@@ -23,7 +22,6 @@ import { TaskNotificationsService } from './task-notifications.service.js';
 export class TasksTransitionService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notifications: NotificationsService,
     private readonly taskNotifications: TaskNotificationsService,
   ) {}
 
@@ -38,9 +36,23 @@ export class TasksTransitionService {
     role: WorkspaceRole,
     dto: TransitionTaskDto,
   ) {
+    const fromStatus = task.status;
+
+    // Idempotent no-op before matrix assert (from === to is otherwise forbidden).
+    if (fromStatus === dto.to) {
+      const taskView = await this.prisma.task.findUniqueOrThrow({
+        where: { id: task.id },
+        include: {
+          assignee: { select: userBriefSelect },
+          creator: { select: userBriefSelect },
+        },
+      });
+      return { taskView, mailContext: null };
+    }
+
     let resolved;
     try {
-      resolved = assertTransitionWithPayload(role, task.status, dto.to, {
+      resolved = assertTransitionWithPayload(role, fromStatus, dto.to, {
         comment: dto.comment,
       });
     } catch (error) {
@@ -54,9 +66,33 @@ export class TasksTransitionService {
     }
 
     const commentText = dto.comment?.trim();
-    const fromStatus = task.status;
 
     const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.task.updateMany({
+        where: { id: task.id, status: fromStatus },
+        data: { status: dto.to },
+      });
+
+      if (updated.count === 0) {
+        const current = await tx.task.findUniqueOrThrow({
+          where: { id: task.id },
+          select: { status: true },
+        });
+
+        if (current.status === dto.to) {
+          const taskView = await tx.task.findUniqueOrThrow({
+            where: { id: task.id },
+            include: {
+              assignee: { select: userBriefSelect },
+              creator: { select: userBriefSelect },
+            },
+          });
+          return { taskView, mailContext: null };
+        }
+
+        throw new ConflictException('Task status changed concurrently');
+      }
+
       if (
         resolved.approvalType === ClientApprovalType.CHANGES_REQUESTED &&
         commentText
@@ -85,6 +121,12 @@ export class TasksTransitionService {
             tx,
             task.project.id,
             task.project.workspaceId,
+          );
+        }
+
+        if (clientUserIds.length === 0) {
+          throw new BadRequestException(
+            'Send to client requires at least one project client',
           );
         }
       }
@@ -123,11 +165,6 @@ export class TasksTransitionService {
         });
       }
 
-      await tx.task.update({
-        where: { id: task.id },
-        data: { status: dto.to },
-      });
-
       const project = await tx.project.findUniqueOrThrow({
         where: { id: task.project.id },
         select: { name: true, workspaceId: true },
@@ -148,6 +185,9 @@ export class TasksTransitionService {
         notifyContext,
         fromStatus,
         dto.to,
+        dto.to === TaskStatus.CLIENT_HANDOFF
+          ? { recipientUserIds: clientUserIds }
+          : undefined,
       );
 
       const taskView = await tx.task.findUniqueOrThrow({

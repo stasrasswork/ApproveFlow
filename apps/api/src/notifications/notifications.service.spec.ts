@@ -117,6 +117,27 @@ describe('NotificationsService', () => {
     expect(prisma.notification.createMany).not.toHaveBeenCalled();
   });
 
+  it('notifies explicit recipientUserIds without workspace lookup', async () => {
+    await service.notifyWorkspaceMembers(prisma as unknown as PrismaService, {
+      workspaceId: 'ws-1',
+      projectId: 'proj-1',
+      taskId: 'task-1',
+      excludeUserId: 'actor-1',
+      recipientUserIds: ['client-1', 'actor-1', 'client-2'],
+      title: 'Handoff',
+      body: 'Sent',
+      type: NotificationType.TASK_CLIENT_HANDOFF,
+    });
+
+    expect(mockedListWorkspaceMemberUserIds).not.toHaveBeenCalled();
+    expect(prisma.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ userId: 'client-1' }),
+        expect.objectContaining({ userId: 'client-2' }),
+      ],
+    });
+  });
+
   it('creates workspace invite notification', async () => {
     await service.notifyWorkspaceInvite(prisma as unknown as PrismaService, {
       userId: 'user-1',

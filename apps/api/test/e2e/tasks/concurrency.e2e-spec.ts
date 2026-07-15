@@ -48,7 +48,10 @@ describeWithSeededApp('Task concurrency (e2e)', (getContext) => {
       .set(authHeader(managerToken))
       .expect(200);
 
-    expect(events.body.length).toBeGreaterThanOrEqual(2);
+    const internalReviewEvents = events.body.filter(
+      (event: { toStatus: string }) => event.toStatus === TaskStatus.INTERNAL_REVIEW,
+    );
+    expect(internalReviewEvents).toHaveLength(1);
   });
 
   it('serializes parallel due date updates to the latest value', async () => {

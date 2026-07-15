@@ -47,9 +47,8 @@ export class MailService {
 
     if (!this.isConfigured()) {
       this.logger.warn(
-        `SMTP not configured — email to ${options.to}: ${options.subject}`,
+        `SMTP not configured — email not sent to ${options.to} (subject: ${options.subject})`,
       );
-      this.logger.debug(options.text);
       return false;
     }
 

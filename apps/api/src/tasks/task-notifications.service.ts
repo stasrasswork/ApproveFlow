@@ -4,7 +4,6 @@ import type { TaskStatus as SharedTaskStatus } from '@approveflow/shared';
 import {
   NotificationType,
   TaskStatus,
-  WorkspaceRole,
 } from '../generated/prisma/client.js';
 import { userBriefSelect, type UserBrief } from '../common/index.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
@@ -68,6 +67,7 @@ export class TaskNotificationsService {
     task: TaskNotificationContext,
     fromStatus: TaskStatus,
     toStatus: TaskStatus,
+    options?: { recipientUserIds?: string[] },
   ): Promise<void> {
     const type =
       toStatus === TaskStatus.CLIENT_HANDOFF
@@ -79,15 +79,15 @@ export class TaskNotificationsService {
         ? 'Task sent for client review'
         : 'Task status updated';
 
+    const isHandoff = toStatus === TaskStatus.CLIENT_HANDOFF;
+
     await this.notifications.notifyWorkspaceMembers(db, {
       workspaceId: task.workspaceId,
       projectId: task.projectId,
       taskId: task.taskId,
       excludeUserId: actorUserId,
-      recipientRoles:
-        toStatus === TaskStatus.CLIENT_HANDOFF
-          ? [WorkspaceRole.CLIENT_VIEW]
-          : undefined,
+      recipientUserIds: isHandoff ? options?.recipientUserIds ?? [] : undefined,
+      recipientRoles: undefined,
       type,
       title,
       body: `${this.displayUserName(actor)} moved "${task.taskTitle}" in ${task.projectName} from ${this.formatStatus(fromStatus)} to ${this.formatStatus(toStatus)}.`,

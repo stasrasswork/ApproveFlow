@@ -1,4 +1,4 @@
-import { TaskStatus, WorkspaceRole } from '../generated/prisma/client.js';
+import { TaskStatus } from '../generated/prisma/client.js';
 import type { NotificationsService } from '../notifications/notifications.service.js';
 import { TaskNotificationsService } from './task-notifications.service.js';
 
@@ -65,13 +65,14 @@ describe('TaskNotificationsService', () => {
       taskContext,
       TaskStatus.INTERNAL_REVIEW,
       TaskStatus.CLIENT_HANDOFF,
+      { recipientUserIds: ['client-1', 'client-2'] },
     );
 
     expect(notifications.notifyWorkspaceMembers).toHaveBeenCalledWith(
       db,
       expect.objectContaining({
         excludeUserId: 'user-1',
-        recipientRoles: [WorkspaceRole.CLIENT_VIEW],
+        recipientUserIds: ['client-1', 'client-2'],
         title: 'Task sent for client review',
         type: 'TASK_CLIENT_HANDOFF',
       }),

@@ -5,9 +5,12 @@ import { PrismaService } from '../prisma/prisma.service.js';
 
 const POLL_INTERVAL_MS = 5_000;
 const BASE_BACKOFF_MS = 2_000;
+const CLAIM_LEASE_MS = 60_000;
 
 export type HandoffEmailPayload = {
   clientUserIds: string[];
+  /** Recipients already delivered successfully (retry-safe). */
+  sentUserIds?: string[];
   workspaceId: string;
   taskId: string;
   projectId: string;
@@ -54,7 +57,7 @@ export class EmailOutboxService implements OnModuleInit, OnModuleDestroy {
     await this.prisma.emailOutbox.create({
       data: {
         kind: 'TASK_CLIENT_HANDOFF',
-        payload,
+        payload: { ...payload, sentUserIds: payload.sentUserIds ?? [] },
         correlationId: correlationId ?? payload.taskId,
       },
     });
@@ -70,6 +73,7 @@ export class EmailOutboxService implements OnModuleInit, OnModuleDestroy {
       },
       orderBy: { createdAt: 'asc' },
       take: 20,
+      select: { id: true },
     });
 
     for (const entry of pending) {
@@ -78,6 +82,22 @@ export class EmailOutboxService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processEntry(entryId: string): Promise<void> {
+    const now = new Date();
+    // Claim row so concurrent API replicas do not deliver the same entry.
+    const claimed = await this.prisma.emailOutbox.updateMany({
+      where: {
+        id: entryId,
+        status: EmailOutboxStatus.PENDING,
+        nextRetryAt: { lte: now },
+      },
+      data: {
+        nextRetryAt: new Date(now.getTime() + CLAIM_LEASE_MS),
+      },
+    });
+    if (claimed.count === 0) {
+      return;
+    }
+
     const entry = await this.prisma.emailOutbox.findUnique({
       where: { id: entryId },
     });
@@ -87,7 +107,7 @@ export class EmailOutboxService implements OnModuleInit, OnModuleDestroy {
 
     try {
       if (entry.kind === 'TASK_CLIENT_HANDOFF') {
-        await this.deliverHandoffEmails(entry.payload as HandoffEmailPayload);
+        await this.deliverHandoffEmails(entry.id, entry.payload as HandoffEmailPayload);
       }
 
       await this.prisma.emailOutbox.update({
@@ -122,15 +142,26 @@ export class EmailOutboxService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async deliverHandoffEmails(payload: HandoffEmailPayload): Promise<void> {
+  private async deliverHandoffEmails(
+    entryId: string,
+    payload: HandoffEmailPayload,
+  ): Promise<void> {
     const title = 'Task awaiting your review';
     const body = `"${payload.taskTitle}" in ${payload.projectName} was sent to you for approval.`;
     const link = `/w/${payload.workspaceId}/projects/${payload.projectId}/tasks/${payload.taskId}`;
+    const alreadySent = new Set(payload.sentUserIds ?? []);
+    const pendingUserIds = payload.clientUserIds.filter((id) => !alreadySent.has(id));
+
+    if (pendingUserIds.length === 0) {
+      return;
+    }
 
     const users = await this.prisma.user.findMany({
-      where: { id: { in: payload.clientUserIds } },
-      select: { email: true },
+      where: { id: { in: pendingUserIds } },
+      select: { id: true, email: true },
     });
+
+    const sentUserIds = [...alreadySent];
 
     for (const user of users) {
       const url = this.mail.appUrl(link);
@@ -140,8 +171,28 @@ export class EmailOutboxService implements OnModuleInit, OnModuleDestroy {
         text: `${body}\n\nOpen: ${url}`,
       });
       if (!sent) {
+        // Persist progress so retries do not re-send to earlier recipients.
+        await this.prisma.emailOutbox.update({
+          where: { id: entryId },
+          data: {
+            payload: {
+              ...payload,
+              sentUserIds,
+            },
+          },
+        });
         throw new Error(`Failed to send email to ${user.email}`);
       }
+      sentUserIds.push(user.id);
+      await this.prisma.emailOutbox.update({
+        where: { id: entryId },
+        data: {
+          payload: {
+            ...payload,
+            sentUserIds,
+          },
+        },
+      });
     }
   }
 }

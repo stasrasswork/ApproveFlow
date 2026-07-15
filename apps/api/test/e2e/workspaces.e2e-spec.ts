@@ -141,6 +141,16 @@ describeWithSeededApp('Workspaces (e2e)', (getContext) => {
     );
   });
 
+  it('GET /workspaces/:id/members forbids clients', async () => {
+    const { app } = getContext();
+    const token = await loginAs(app, 'client@test.local', SEED_PASSWORD);
+
+    await request(app.getHttpServer())
+      .get(`/workspaces/${SEED_IDS.workspace}/members`)
+      .set(authHeader(token))
+      .expect(403);
+  });
+
   it('POST /workspaces/:id/members invites registered user', async () => {
     const { app } = getContext();
     await request(app.getHttpServer())

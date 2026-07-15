@@ -62,15 +62,27 @@ export class NotificationsService {
       taskId?: string;
       excludeUserId?: string;
       recipientRoles?: WorkspaceRole[];
+      /** When set, only these users are notified (still filtered by excludeUserId). */
+      recipientUserIds?: string[];
       title: string;
       body: string;
       type?: NotificationType;
     },
   ): Promise<void> {
-    const recipientIds = await listWorkspaceMemberUserIds(db, params.workspaceId, {
-      excludeUserIds: params.excludeUserId ? [params.excludeUserId] : [],
-      includeRoles: params.recipientRoles,
-    });
+    let recipientIds: string[];
+    if (params.recipientUserIds) {
+      const excluded = new Set(
+        params.excludeUserId ? [params.excludeUserId] : [],
+      );
+      recipientIds = [...new Set(params.recipientUserIds)].filter(
+        (userId) => !excluded.has(userId),
+      );
+    } else {
+      recipientIds = await listWorkspaceMemberUserIds(db, params.workspaceId, {
+        excludeUserIds: params.excludeUserId ? [params.excludeUserId] : [],
+        includeRoles: params.recipientRoles,
+      });
+    }
 
     if (recipientIds.length === 0) {
       return;

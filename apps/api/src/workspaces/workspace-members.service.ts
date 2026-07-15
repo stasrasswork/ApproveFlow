@@ -49,7 +49,10 @@ export class WorkspaceMembersService {
     userId: string,
   ): Promise<WorkspaceMemberWithUser[]> {
     await assertWorkspaceExists(this.prisma, workspaceId);
-    await getWorkspaceRole(this.prisma, workspaceId, userId);
+    const role = await getWorkspaceRole(this.prisma, workspaceId, userId);
+    if (role === WorkspaceRole.CLIENT_VIEW) {
+      throw new ForbiddenException('Clients cannot list workspace members');
+    }
 
     return this.prisma.workspaceMember.findMany({
       where: { workspaceId },
