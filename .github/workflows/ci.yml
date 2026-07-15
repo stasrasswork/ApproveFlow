@@ -83,7 +83,9 @@ jobs:
         run: npm run test:unit -w api
 
       - name: Build API
-        run: npm run build -w api
+        run: |
+          npm run build -w api
+          test -f apps/api/dist/main.js
 
       - name: E2E tests
         run: npm run test:e2e -w api

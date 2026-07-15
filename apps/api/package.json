@@ -10,13 +10,13 @@
     "db:studio": "prisma studio",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
-    "build": "nest build",
+    "build": "tsc -p tsconfig.build.json",
     "lint": "eslint \"src/**/*.{js,mjs,cjs,ts,mts,cts}\"",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "jest --config jest.config.ts",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "test:e2e:setup": "node --env-file=.env.test ./node_modules/.bin/prisma migrate deploy",
-    "export-openapi": "nest build && node dist/src/openapi-export.js"
+    "export-openapi": "npm run build && node dist/openapi-export.js"
   },
   "dependencies": {
     "@approveflow/shared": "*",
@@ -49,6 +49,8 @@
     "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^11.0.21",
     "@nestjs/testing": "^11.1.21",
+    "@swc/cli": "^0.8.1",
+    "@swc/core": "^1.15.33",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
@@ -65,5 +67,11 @@
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.4"
+  },
+  "optionalDependencies": {
+    "@swc/core-darwin-arm64": "1.15.33",
+    "@swc/core-darwin-x64": "1.15.33",
+    "@swc/core-linux-arm64-gnu": "1.15.33",
+    "@swc/core-linux-x64-gnu": "1.15.33"
   }
 }
