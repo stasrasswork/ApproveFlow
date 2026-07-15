@@ -4,7 +4,6 @@ export type {
   TaskStatus,
   WorkspaceRole,
 } from './types.js';
-export type { components, paths } from './generated/openapi.js';
 export {
   formatTaskStatus,
   TASK_STATUS_LABELS,
@@ -17,3 +16,6 @@ export {
   SLUG_VALIDATION_MESSAGE,
   slugify,
 } from './slug.js';
+
+// OpenAPI `components`/`paths` are not exported: generated schemas are empty
+// until DTOs use @ApiProperty. Use `npm run codegen:openapi` when ready.

@@ -10,6 +10,7 @@ Product rules: [`docs/product/approveflow-spec.md`](docs/product/approveflow-spe
 |------|-------------|
 | `apps/api` | NestJS + Prisma + PostgreSQL |
 | `apps/web` | React 19 + Vite + TanStack Query + Tailwind |
+| `packages/shared` | Shared labels, roles, slug helpers (hand-written API types live in `apps/web` until OpenAPI schemas are real) |
 
 Dependency lockfile: **root `package-lock.json` only** (npm workspaces). Per-app `node_modules/` folders are created by npm (`install-strategy=nested` in `.npmrc`).
 
@@ -48,7 +49,7 @@ npm run db:seed
 npm run start:dev
 ```
 
-API: `http://localhost:3000` · Health: `GET /health` · OpenAPI: `http://localhost:3000/docs`
+API: `http://localhost:3000` · Health: `GET /health/live`, `GET /health/ready` · OpenAPI UI (non-prod): `http://localhost:3000/docs`
 
 Seed users (password `password123`): `admin@test.local`, `manager@test.local`, `member@test.local`, `client@test.local`
 
@@ -77,15 +78,17 @@ npm run dev:web   # terminal 2
 |---------|-------------|
 | `npm run dev:api` | API dev server |
 | `npm run dev:web` | Web dev server |
-| `npm run build` | Build API + web |
+| `npm run build` | Build shared + API + web |
 | `npm run build:shared` | Build shared package only |
 | `npm run lint` | Lint API + web |
 | `npm run test` | Unit tests (API + web) |
 | `npm run test:api` | API unit + e2e |
 | `npm run test:web` | Web unit tests |
+| `npm run test:web:e2e` | Playwright against API + Vite |
 | `npm run check:migrations` | Validate Prisma migration directory names |
 | `npm run check:env:prod` | Validate `.env.prod` before Docker deploy |
 | `npm run dev:init` | Create missing `apps/*/.env` from examples |
+| `npm run codegen:openapi` | Regenerate OpenAPI JSON/types (schemas are incomplete until DTOs use `@ApiProperty`) |
 
 ## First-time user flow
 
@@ -100,9 +103,7 @@ npm run dev:web   # terminal 2
 
 The web app proxies to the API on port 3000. If Nest fails to start, Vite cannot reach it.
 
-In npm workspaces, Nest-related packages can be hoisted to the repo root while peers (`@nestjs/platform-express`, `class-validator`, `class-transformer`) stay under `apps/api`. Nest then fails to find the HTTP driver or validation libraries.
-
-Root `package.json` lists those peer deps explicitly. After pulling changes, from the repository root run:
+This monorepo uses `.npmrc` `install-strategy=nested` so Nest and its peers stay under `apps/api/node_modules`. After pulling changes, from the repository root run:
 
 ```bash
 npm install
@@ -118,6 +119,7 @@ Ensure PostgreSQL is running (`docker compose up -d`) and `apps/api/.env` exists
 ```bash
 npm run test:api
 npm run test:web
+npm run test:web:e2e
 ```
 
 ## Production deployment
