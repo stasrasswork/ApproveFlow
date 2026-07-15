@@ -17,5 +17,7 @@ test('manager logs in, creates task, and starts work', async ({ page }) => {
   await page.getByRole('link', { name: new RegExp(TASK_TITLE) }).click();
   await expect(page.getByRole('heading', { name: TASK_TITLE })).toBeVisible();
   await page.getByRole('button', { name: 'Start work' }).click();
-  await expect(page.getByText('In progress')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('In progress', { exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
 });
