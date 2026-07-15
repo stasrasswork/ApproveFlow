@@ -54,11 +54,16 @@ jobs:
 
       - name: Generate Prisma client
         run: npm run db:generate -w api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/approveflow_test?schema=public
 
       - name: Run migrations
         run: npm exec -w api -- prisma migrate deploy
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/approveflow_test?schema=public
+
+      - name: Build shared package
+        run: npm run build:shared
 
       - name: Unit tests
         run: |
@@ -104,6 +109,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build shared package
+        run: npm run build:shared
+
+      - name: Generate Prisma client
+        run: npm run db:generate -w api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/approveflow_test?schema=public
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium

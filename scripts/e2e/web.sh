@@ -24,7 +24,7 @@ cleanup() {
 trap cleanup EXIT
 
 for _ in $(seq 1 30); do
-  if curl -sf http://localhost:3000/health >/dev/null; then
+  if curl -sf http://localhost:3000/health/ready >/dev/null; then
     break
   fi
   sleep 1
