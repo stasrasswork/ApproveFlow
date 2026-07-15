@@ -31,8 +31,9 @@ Forbidden patterns:
 
 ## Legacy exception
 
-Migration `20260708181927_1` is retained as legacy and must not be renamed or altered.
+Migration `20260708181927_1` is retained as a legacy directory name only (no-op SQL).
 Policy enforcement ignores this one directory by design.
+Do not add new migrations with `_1` suffixes.
 
 ## CI enforcement
 

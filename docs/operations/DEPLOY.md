@@ -24,6 +24,9 @@ The web app calls the API using `VITE_API_URL` (baked in at **build time**).
 | `PORT` | no | `3000` (default) |
 | `NODE_ENV` | yes | `production` |
 | `REDIS_URL` | no | Redis for shared rate limiting across API instances (falls back to in-memory when unset) |
+| `APP_URL` | yes in production | Public frontend URL for email links |
+| `SMTP_*` | yes in production | Required for password reset and invite emails |
+| `EXPOSE_DEBUG_TOKENS` | yes | Must be `false` in production |
 
 Copy from `apps/api/.env.example` and replace secrets.
 
@@ -39,10 +42,18 @@ Copy from `apps/api/.env.example` and replace secrets.
    Build with `VITE_API_URL=/api`. Nginx proxies `/api/*` → API (see `apps/web/nginx.conf`).
 
 2. **Separate API subdomain**  
-   Build with `VITE_API_URL=https://api.example.com`. Set API `CORS_ORIGIN=https://app.example.com`.
+   Build with `VITE_API_URL=https://api.example.com`. Set API `CORS_ORIGIN=https://app.example.com`.  
+   Auth cookies use `Path=/` (host-only), so cookie sessions work on the API host. Configure CORS carefully.
 
 3. **Dev only**  
    Leave empty — Vite dev server proxies `/api` → `localhost:3000`.
+
+### Auth cookies
+
+- Login/refresh set HttpOnly cookies (`access_token`, `refresh_token`) with `Path=/`, `SameSite=Lax`.
+- Browser clients do **not** receive JWT strings in JSON bodies (XSS-safe). API clients that send `refresh_token` in the body still receive rotated tokens in the response.
+- Mutating cookie-authenticated requests require header `X-Requested-With: ApproveFlow`.
+- After deploy, users must sign in again if `JWT_SECRET` changed.
 
 ## Option A — Docker Compose (fastest self-hosted)
 
@@ -57,7 +68,44 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 
 Open **http://localhost:8080** (or `WEB_PORT` from `.env.prod`).
 
-The API container runs `prisma migrate deploy` on start, then `node dist/main.js`.
+The API container starts the server only. Database migrations run in a one-shot `migrate` service before API startup (see `docker-compose.prod.yml`).
+
+For manual deploys, run migrations explicitly:
+
+```bash
+bash scripts/ops/backup-db.sh ./backups   # production
+bash scripts/ops/migrate.sh
+```
+
+## Operations runbooks
+
+- [Backup and restore](backup-restore.md)
+- [Rollback playbook](rollback.md)
+- [Incident response](incident-response.md)
+- [Migration policy](migration-policy.md)
+- [Monitoring and alerting](monitoring.md)
+- [Performance baseline](performance-baseline.md)
+
+## Release workflow
+
+GitHub Actions workflow `.github/workflows/release.yml` provides preflight checks and environment-gated deploy steps for `staging`, `canary`, and `production`.
+
+Progressive rollout checklist:
+
+1. Staging: migrate + smoke + restore drill
+2. Canary: 5–10% traffic, monitor 30–120 minutes
+3. Production: 25% → 50% → 100% with rollback triggers
+
+## Pre-deploy checklist
+
+- [ ] Run `npm run check:env:prod` (validates `.env.prod` secrets and SMTP for public URLs)
+- [ ] Backup taken for production (`scripts/ops/backup-db.sh`)
+- [ ] Migrations applied via `scripts/ops/migrate.sh` (not at API container boot)
+- [ ] `JWT_SECRET` is a strong random value (not the dev default)
+- [ ] `CORS_ORIGIN` matches your frontend URL(s)
+- [ ] `VITE_API_URL` set correctly **before** `npm run build -w web`
+- [ ] `npm run lint` and `npm run test` pass in CI
+- [ ] Health endpoint responds: `/health/ready`
 
 Useful commands:
 
@@ -81,12 +129,12 @@ cp .env.example .env
 # Set DATABASE_URL, JWT_SECRET, CORS_ORIGIN, NODE_ENV=production
 
 npm run db:generate
-npx prisma migrate deploy
+bash ../../scripts/ops/migrate.sh
 npm run build
 node dist/main.js
 ```
 
-Health check: `GET /health`
+Health check: `GET /health/ready`
 
 ### 3. Web
 
@@ -127,18 +175,11 @@ Use `apps/web/nginx.conf` as a reference.
 3. Set `CORS_ORIGIN` on the API to your static site URL.
 4. Set `VITE_API_URL` on the static site build to the API public URL.
 
-## Pre-deploy checklist
-
-- [ ] `JWT_SECRET` is a strong random value (not the dev default)
-- [ ] `CORS_ORIGIN` matches your frontend URL(s)
-- [ ] `VITE_API_URL` set correctly **before** `npm run build -w web`
-- [ ] `prisma migrate deploy` applied to production database
-- [ ] `npm run lint` and `npm run test` pass in CI
-- [ ] Health endpoint responds: `/health`
-
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs lint, API unit + e2e tests, and web build on every push to `main`.
+
+Release gates are defined in `.github/workflows/release.yml`.
 
 ## Troubleshooting
 

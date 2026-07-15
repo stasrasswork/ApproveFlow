@@ -170,7 +170,7 @@ E2E loads env from `.env.test` (see `.env.test.example`). Default test database:
 ```
 src/
 ├── auth/           # JWT auth, login, register, refresh, /auth/me
-├── common/         # Access helpers, slug, shared types
+├── common/         # Access helpers and shared API utilities
 ├── health/         # GET /health
 ├── prisma/         # PrismaService
 ├── projects/       # Projects + project members

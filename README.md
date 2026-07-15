@@ -27,6 +27,7 @@ All installs use the root lockfile (`package-lock.json`). Do not run `npm instal
 
 ```bash
 npm install
+npm run dev:init   # creates apps/api/.env, apps/web/.env if missing
 ```
 
 ### 2. Start PostgreSQL
@@ -39,6 +40,7 @@ docker compose up -d
 
 ```bash
 cd apps/api
+# skip cp if you ran npm run dev:init
 cp .env.example .env
 npm run db:generate
 npm run db:migrate
@@ -81,7 +83,9 @@ npm run dev:web   # terminal 2
 | `npm run test` | Unit tests (API + web) |
 | `npm run test:api` | API unit + e2e |
 | `npm run test:web` | Web unit tests |
-| `npm run codegen:openapi` | Export API schema and regenerate shared OpenAPI types |
+| `npm run check:migrations` | Validate Prisma migration directory names |
+| `npm run check:env:prod` | Validate `.env.prod` before Docker deploy |
+| `npm run dev:init` | Create missing `apps/*/.env` from examples |
 
 ## First-time user flow
 
@@ -119,6 +123,27 @@ npm run test:web
 ## Production deployment
 
 See [`docs/operations/DEPLOY.md`](docs/operations/DEPLOY.md) for Docker Compose, manual deploy, and Render.
+
+### Docker Compose (fresh production stack)
+
+Removes old Postgres volume and starts clean (fixes password/volume mismatch):
+
+```bash
+bash scripts/ops/prod-up-fresh.sh
+```
+
+Manual equivalent:
+
+```bash
+cp .env.prod.example .env.prod
+# set JWT_SECRET and POSTGRES_PASSWORD (must match on first init)
+docker compose -f docker-compose.prod.yml --env-file .env.prod down -v
+docker compose -f docker-compose.prod.yml --env-file .env.prod up --build
+```
+
+Open `http://localhost:8080` (default `WEB_PORT`). Register at `/register` — prod compose does not auto-seed demo users.
+
+**Note:** Changing `POSTGRES_PASSWORD` later requires `down -v` (wipes DB) or keeping the original password.
 
 ## Documentation
 
