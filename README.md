@@ -155,3 +155,7 @@ Open `http://localhost:8080` (default `WEB_PORT`). Register at `/register` — p
 - [`docs/operations/DEPLOY.md`](docs/operations/DEPLOY.md) — production deployment options
 - [`docs/operations/migration-policy.md`](docs/operations/migration-policy.md) — migration naming and CI rules
 - [`docs/adr`](docs/adr) — product and architecture decisions
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
