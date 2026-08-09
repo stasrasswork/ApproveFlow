@@ -1,5 +1,5 @@
-# Example Render blueprint: managed Postgres + API web service + static frontend.
-# Adjust regions, plans, and env vars for your account.
+# ApproveFlow on Render: managed Postgres + API only.
+# Frontend stays on Vercel (see vercel.json).
 # Docs: https://render.com/docs/blueprint-spec
 
 databases:
@@ -25,17 +25,20 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGIN
-        sync: false
+        value: https://approve-flow-gamma.vercel.app
       - key: APP_URL
-        sync: false
+        value: https://approve-flow-gamma.vercel.app
       - key: EXPOSE_DEBUG_TOKENS
-        value: false
+        value: 'false'
+      - key: PORT
+        value: '3000'
+      # Required in production (password reset / invites). Set after deploy.
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
-        value: 587
+        value: '587'
       - key: SMTP_SECURE
-        value: false
+        value: 'false'
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASS
@@ -44,18 +47,3 @@ services:
         sync: false
       - key: REDIS_URL
         sync: false
-      - key: PORT
-        value: 3000
-
-  - type: web
-    name: approveflow-web
-    runtime: static
-    buildCommand: npm ci && npm run build:shared && npm run build -w web
-    staticPublishPath: apps/web/dist
-    envVars:
-      - key: VITE_API_URL
-        sync: false
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
