@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://approveflow-api.onrender.com/:path*"
+      "destination": "https://approveflow-api-33d7.onrender.com/:path*"
     },
     {
       "source": "/(.*)",
