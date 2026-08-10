@@ -38,4 +38,5 @@ COPY apps/api/prisma.config.ts apps/api/
 
 WORKDIR /app/apps/api
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+# Free Render has no Shell — apply migrations on boot, then start API.
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
