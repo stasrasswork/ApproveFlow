@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import {
   WorkspaceMember,
@@ -27,6 +27,8 @@ export type InviteWorkspaceResult =
 
 @Injectable()
 export class WorkspaceInvitesService {
+  private readonly logger = new Logger(WorkspaceInvitesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
@@ -170,6 +172,10 @@ export class WorkspaceInvitesService {
       },
     });
 
+    this.logger.log(
+      `Creating email invite workspace=${workspaceId} role=${role} invitedBy=${invitedById}`,
+    );
+
     const registerUrl = this.mail.appUrl(
       `/register?invite=${rawToken}&email=${encodeURIComponent(normalizedEmail)}`,
     );
@@ -179,15 +185,27 @@ export class WorkspaceInvitesService {
       text: `You were invited to join "${workspaceName}" as ${role}.\n\nCreate your account or sign in, then open:\n${registerUrl}`,
     });
 
+    if (sent) {
+      this.logger.log(
+        `Invite email sent workspace=${workspaceId} role=${role}`,
+      );
+    } else {
+      this.logger.warn(
+        `Invite created without email workspace=${workspaceId} role=${role}`,
+      );
+    }
+
     const message = sent
       ? 'Invite email sent.'
-      : 'Invite created. Share the link with the invitee (SMTP not configured).';
+      : 'Invite created, but email could not be sent. Share the registration link with the invitee.';
 
-    // Never expose raw invite tokens in production (even when SMTP fails).
-    if (
-      ENV.NODE_ENV !== 'production' &&
-      (!sent || ENV.NODE_ENV === 'test' || ENV.EXPOSE_DEBUG_TOKENS)
-    ) {
+    // Expose token when SMTP failed (inviter must share the link) or in non-prod/debug.
+    const exposeToken =
+      !sent ||
+      ENV.NODE_ENV !== 'production' ||
+      ENV.EXPOSE_DEBUG_TOKENS;
+
+    if (exposeToken) {
       return { status: 'pending', message, inviteToken: rawToken };
     }
 

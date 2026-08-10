@@ -7,6 +7,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
+import { accessLogMiddleware } from './common/access-log.middleware.js';
 import { ENV } from './config/env.js';
 
 function configureCors(app: Awaited<ReturnType<typeof NestFactory.create>>): void {
@@ -30,6 +31,7 @@ async function bootstrap() {
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.use(helmet());
   app.use(cookieParser());
+  app.use(accessLogMiddleware);
   configureCors(app);
   app.useGlobalPipes(
     new ValidationPipe({

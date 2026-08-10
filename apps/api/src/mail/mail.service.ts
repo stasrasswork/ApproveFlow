@@ -28,6 +28,9 @@ export class MailService {
         host: process.env.SMTP_HOST ?? ENV.SMTP_HOST,
         port: Number(process.env.SMTP_PORT ?? ENV.SMTP_PORT),
         secure: (process.env.SMTP_SECURE ?? String(ENV.SMTP_SECURE)) === 'true',
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
         auth:
           (process.env.SMTP_USER ?? ENV.SMTP_USER) &&
           (process.env.SMTP_PASS ?? ENV.SMTP_PASS)
@@ -52,15 +55,28 @@ export class MailService {
       return false;
     }
 
-    await this.getTransporter().sendMail({
-      from,
-      to: options.to,
-      subject: options.subject,
-      text: options.text,
-      html: options.html ?? options.text.replace(/\n/g, '<br>'),
-    });
+    this.logger.log(
+      `Sending email to ${options.to} (subject: ${options.subject})`,
+    );
 
-    return true;
+    try {
+      await this.getTransporter().sendMail({
+        from,
+        to: options.to,
+        subject: options.subject,
+        text: options.text,
+        html: options.html ?? options.text.replace(/\n/g, '<br>'),
+      });
+      this.logger.log(`Email sent to ${options.to}`);
+      return true;
+    } catch (error) {
+      this.transporter = null;
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to send email to ${options.to}: ${message}`,
+      );
+      return false;
+    }
   }
 
   appUrl(path: string): string {
